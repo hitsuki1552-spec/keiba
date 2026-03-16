@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -176,6 +177,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div class="card"><div class="chart-wrap" style="height:220px"><canvas id="chart-monthly-rec"></canvas></div></div>
       <div class="card-title" style="margin-top:4px">月別収支</div>
       <div class="month-cards" id="month-cards"></div>
+      <div class="card-title" style="margin-top:4px">競馬場別収支</div>
+      <div class="month-cards" id="course-cards"></div>
     </div>
 
     <!-- 記録 -->
@@ -648,6 +651,22 @@ function calcMonthly(races) {
   return Object.entries(map).sort((a, b) => a[0] < b[0] ? -1 : 1);
 }
 
+function calcCourse(races) {
+  const map = {};
+  races.forEach(r => {
+    const course = (r.raceCourse || '').trim() || '未設定';
+    if (!map[course]) map[course] = {invest:0, payout:0, win:0, lose:0};
+    r.bets.forEach(b => {
+      if (b.result === null) return;
+      map[course].invest += b.bet;
+      if (b.result === 'win') { map[course].payout += b.payout || 0; map[course].win++; }
+      else map[course].lose++;
+    });
+  });
+  // 投資額の多い順に並べる
+  return Object.entries(map).sort((a, b) => b[1].invest - a[1].invest);
+}
+
 function renderDash() {
   const races = racesCache;
   const st = calcStats(races);
@@ -697,6 +716,7 @@ function renderDash() {
 
   renderCharts(races, st, monthly);
   renderMonthlyCards(monthly);
+  renderCourseCards(calcCourse(races));
 }
 
 function renderCharts(races, st, monthly) {
@@ -750,6 +770,29 @@ function renderMonthlyCards(monthly) {
     return `<div class="month-card">
       <div class="mc-head">
         <div class="mc-ym">${y}年${+m}月</div>
+        <div class="mc-rec ${recCls}">${r !== null ? r + '%' : '—%'}</div>
+      </div>
+      <div class="mc-row"><span>投資</span><span>¥${d.invest.toLocaleString()}</span></div>
+      <div class="mc-row"><span>回収</span><span>¥${d.payout.toLocaleString()}</span></div>
+      <div class="mc-row"><span>収支</span><span style="color:${p >= 0 ? 'var(--green)' : 'var(--red)'}">${p >= 0 ? '+' : ''}¥${p.toLocaleString()}</span></div>
+      <div class="mc-row"><span>的中</span><span>${d.win}/${d.win + d.lose}件</span></div>
+      <div class="mc-bar-wrap"><div class="mc-bar" style="width:${barW / 2}%;background:${barColor}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderCourseCards(courses) {
+  const el = document.getElementById('course-cards');
+  if (!courses.length) { el.innerHTML = '<div class="empty-msg">まだ記録がありません</div>'; return; }
+  el.innerHTML = courses.map(([course, d]) => {
+    const p = d.payout - d.invest;
+    const r = d.invest > 0 ? Math.round(d.payout / d.invest * 100) : null;
+    const recCls = r === null ? 'even' : r >= 100 ? 'pos' : 'neg';
+    const barW = r !== null ? Math.min(r, 200) : 0;
+    const barColor = r === null ? '#606060' : r >= 100 ? '#4caf82' : '#e05555';
+    return `<div class="month-card">
+      <div class="mc-head">
+        <div class="mc-ym">${course}</div>
         <div class="mc-rec ${recCls}">${r !== null ? r + '%' : '—%'}</div>
       </div>
       <div class="mc-row"><span>投資</span><span>¥${d.invest.toLocaleString()}</span></div>
