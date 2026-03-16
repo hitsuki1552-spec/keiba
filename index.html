@@ -204,9 +204,21 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
     <!-- 記録 -->
     <div class="section" id="sec-record">
-      <div class="form-row">
-        <label class="form-label">レース名</label>
-        <input class="form-input" id="f-race" placeholder="例: 東京11R ヴィクトリアマイル" type="text">
+      <div class="form-grid2">
+        <div class="form-row">
+          <label class="form-label">レース名</label>
+          <input class="form-input" id="f-race" placeholder="例: ヴィクトリアマイル" type="text">
+        </div>
+        <div class="form-row">
+          <label class="form-label">レース番号</label>
+          <select class="form-input" id="f-racenum">
+            <option value="">—</option>
+            <option>1R</option><option>2R</option><option>3R</option>
+            <option>4R</option><option>5R</option><option>6R</option>
+            <option>7R</option><option>8R</option><option>9R</option>
+            <option>10R</option><option>11R</option><option>12R</option>
+          </select>
+        </div>
       </div>
       <div class="form-grid2">
         <div class="form-row"><label class="form-label">日付</label><input class="form-input" id="f-date" type="date"></div>
@@ -299,7 +311,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="edit-modal-wrap" id="edit-modal-wrap" onclick="closeEditModal(event)">
     <div class="edit-modal" id="edit-modal">
       <div class="edit-modal-title" id="edit-modal-title">レースを編集</div>
-      <div class="edit-modal-sub" id="edit-modal-sub"></div>
+      <div class="edit-section-label">レース情報</div>
+      <div id="edit-race-area"></div>
       <div class="edit-section-label">印・馬名・単勝オッズ・着順</div>
       <div id="edit-marks-area"></div>
       <div class="edit-section-label">買い目の結果・払戻金額</div>
@@ -625,10 +638,12 @@ function judgeResult(bet, mhmap, rankMap) {
 }
 
 async function saveRace() {
-  const raceName = document.getElementById('f-race').value.trim();
+  const raceNameRaw = document.getElementById('f-race').value.trim();
+  const raceNum = document.getElementById('f-racenum').value;
+  const raceName = raceNum ? raceNum + (raceNameRaw ? ' ' + raceNameRaw : '') : raceNameRaw;
   const raceDate = document.getElementById('f-date').value;
   const raceCourse = document.getElementById('f-course').value.trim();
-  if (!raceName) { toast('レース名を入力してください'); return; }
+  if (!raceName) { toast('レース名またはレース番号を入力してください'); return; }
   if (!currentBets.length) { toast('買い目を追加してください'); return; }
 
   const mhmap = {}, rankMap = {}, markOddsMap = {};
@@ -678,6 +693,7 @@ async function saveRace() {
   btn.textContent = 'レースを保存';
 
   document.getElementById('f-race').value = '';
+  document.getElementById('f-racenum').value = '';
   document.getElementById('f-course').value = '';
   MARKS_DEF.forEach(m => {
     document.getElementById('mh-' + m.sym).value = '';
@@ -980,9 +996,44 @@ function openEditModal(id) {
   if (!race) return;
   editingRaceId = id;
 
-  document.getElementById('edit-modal-title').textContent = race.raceName;
-  document.getElementById('edit-modal-sub').textContent =
-    (race.raceDate || '') + (race.raceCourse ? ' / ' + race.raceCourse : '');
+  document.getElementById('edit-modal-title').textContent = race.raceName || 'レースを編集';
+
+  // レース情報エリア
+  const COURSES = ['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉','地方','海外'];
+  const courseOpts = COURSES.map(c =>
+    `<option value="${c}" ${race.raceCourse === c ? 'selected' : ''}>${c}</option>`
+  ).join('');
+  const raceNums = ['','1R','2R','3R','4R','5R','6R','7R','8R','9R','10R','11R','12R'];
+  // raceName から先頭のレース番号部分を分離
+  const numMatch = (race.raceName || '').match(/^(\d{1,2}R)\s*(.*)/);
+  const savedNum  = numMatch ? numMatch[1] + 'R'.replace(/RR$/,'R') : '';
+  const savedNumClean = numMatch ? numMatch[1] : '';
+  const savedNameClean = numMatch ? numMatch[2] : (race.raceName || '');
+  const numOpts = raceNums.map(n =>
+    `<option value="${n}" ${savedNumClean === n ? 'selected' : ''}>${n || '—'}</option>`
+  ).join('');
+  document.getElementById('edit-race-area').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+      <div>
+        <div class="edit-input-label">レース番号</div>
+        <select class="edit-input" id="e-racenum">${numOpts}</select>
+      </div>
+      <div>
+        <div class="edit-input-label">開催場</div>
+        <select class="edit-input" id="e-course">
+          <option value="">選択</option>${courseOpts}
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:6px">
+      <div class="edit-input-label">レース名</div>
+      <input class="edit-input" id="e-racename" value="${savedNameClean}" placeholder="例: ヴィクトリアマイル" style="width:100%">
+    </div>
+    <div>
+      <div class="edit-input-label">日付</div>
+      <input class="edit-input" id="e-racedate" type="date" value="${race.raceDate || ''}" style="width:100%">
+    </div>
+  `;
 
   // 印・オッズ・着順エリア
   const ma = document.getElementById('edit-marks-area');
@@ -1054,6 +1105,13 @@ function closeEditModal(e) {
 async function saveEdit() {
   const race = racesCache.find(r => r.id === editingRaceId);
   if (!race) return;
+
+  // レース情報を更新
+  const raceNum  = document.getElementById('e-racenum').value;
+  const raceName = document.getElementById('e-racename').value.trim();
+  race.raceName  = raceNum ? raceNum + (raceName ? ' ' + raceName : '') : raceName;
+  race.raceCourse = document.getElementById('e-course').value;
+  race.raceDate   = document.getElementById('e-racedate').value;
 
   // 印のオッズ・着順を更新
   if (!race.markOddsMap) race.markOddsMap = {};
@@ -1166,4 +1224,3 @@ function toast(msg) {
 </script>
 </body>
 </html>
-
