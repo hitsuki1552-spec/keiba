@@ -210,7 +210,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       </div>
       <div class="form-grid2">
         <div class="form-row"><label class="form-label">日付</label><input class="form-input" id="f-date" type="date"></div>
-        <div class="form-row"><label class="form-label">開催場</label><input class="form-input" id="f-course" placeholder="東京・阪神 等" type="text"></div>
+        <div class="form-row"><label class="form-label">開催場</label>
+          <select class="form-input" id="f-course">
+            <option value="">選択してください</option>
+            <optgroup label="中央競馬（JRA）">
+              <option>札幌</option><option>函館</option><option>福島</option>
+              <option>新潟</option><option>東京</option><option>中山</option>
+              <option>中京</option><option>京都</option><option>阪神</option>
+              <option>小倉</option>
+            </optgroup>
+            <optgroup label="その他">
+              <option>地方</option><option>海外</option>
+            </optgroup>
+          </select>
+        </div>
       </div>
       <div class="card-title" style="margin-top:2px">印・馬名・着順</div>
       <div class="card" style="padding:10px">
@@ -1153,3 +1166,4 @@ function toast(msg) {
 </script>
 </body>
 </html>
+
