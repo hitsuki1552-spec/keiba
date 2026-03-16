@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -139,6 +138,26 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .nav-icon{font-size:20px;line-height:1;}
 .empty-msg{text-align:center;color:var(--text3);font-size:13px;padding:32px 0;}
 .divider{height:1px;background:var(--border);margin:10px 0;}
+/* Edit modal */
+.edit-modal-wrap{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;align-items:flex-end;justify-content:center;}
+.edit-modal-wrap.open{display:flex;}
+.edit-modal{background:var(--bg2);border-radius:16px 16px 0 0;padding:20px 16px 32px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
+.edit-modal-title{font-size:14px;font-weight:700;color:var(--gold);margin-bottom:4px;}
+.edit-modal-sub{font-size:11px;color:var(--text3);margin-bottom:14px;}
+.edit-section-label{font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.06em;margin:12px 0 6px;}
+.edit-mark-row{display:grid;grid-template-columns:28px 1fr 80px 60px;gap:6px;align-items:center;margin-bottom:6px;}
+.edit-mark-row span{font-size:11px;color:var(--text2);}
+.edit-bet-row{background:var(--bg3);border-radius:8px;padding:8px 10px;margin-bottom:6px;}
+.edit-bet-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px;}
+.edit-bet-inputs{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.edit-input{width:100%;background:var(--bg4);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--font);font-size:13px;padding:7px 9px;outline:none;}
+.edit-input:focus{border-color:var(--gold);}
+.edit-input-label{font-size:10px;color:var(--text3);margin-bottom:3px;}
+.edit-btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;}
+.edit-cancel-btn{padding:12px;background:none;color:var(--text2);border:1px solid var(--border2);border-radius:10px;font-size:14px;font-weight:500;font-family:var(--font);cursor:pointer;}
+.edit-save-btn{padding:12px;background:var(--gold);color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer;}
+.hi-edit{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text3);cursor:pointer;font-size:11px;padding:3px 8px;font-family:var(--font);}
+.edit-delete-btn{width:100%;margin-top:10px;padding:11px;background:none;color:var(--red);border:1px solid rgba(224,85,85,0.3);border-radius:10px;font-size:13px;font-family:var(--font);cursor:pointer;}
 </style>
 </head>
 <body>
@@ -179,6 +198,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div class="month-cards" id="month-cards"></div>
       <div class="card-title" style="margin-top:4px">競馬場別収支</div>
       <div class="month-cards" id="course-cards"></div>
+      <div class="card-title" style="margin-top:4px">印別成績（1着率・単勝回収率）</div>
+      <div class="card" style="padding:10px" id="mark-stats-card"></div>
     </div>
 
     <!-- 記録 -->
@@ -258,6 +279,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.08em;margin-bottom:10px">接続状態</div>
         <div id="conn-status" style="font-size:13px;color:var(--text2)">URLが未設定です</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Edit modal -->
+  <div class="edit-modal-wrap" id="edit-modal-wrap" onclick="closeEditModal(event)">
+    <div class="edit-modal" id="edit-modal">
+      <div class="edit-modal-title" id="edit-modal-title">レースを編集</div>
+      <div class="edit-modal-sub" id="edit-modal-sub"></div>
+      <div class="edit-section-label">印・馬名・単勝オッズ・着順</div>
+      <div id="edit-marks-area"></div>
+      <div class="edit-section-label">買い目の結果・払戻金額</div>
+      <div id="edit-bets-area"></div>
+      <div class="edit-btn-row">
+        <button class="edit-cancel-btn" onclick="closeEditModal()">キャンセル</button>
+        <button class="edit-save-btn" onclick="saveEdit()">保存する</button>
+      </div>
+      <button class="edit-delete-btn" onclick="editModalDelete()">このレースを削除する</button>
     </div>
   </div>
 
@@ -520,13 +558,26 @@ function buildCombos(type, axes, partners) {
     return cs.length ? cs : [[axes[0], partners[0]]];
   }
   if (type === 'sanfuku') {
-    const all = [...axes, ...partners];
+    // 軸は必ず含め、相手からC(n,2)の組み合わせを生成（重複なし）
     const cs = [];
-    for (let i = 0; i < all.length; i++)
-      for (let j = i + 1; j < all.length; j++)
-        for (let k = j + 1; k < all.length; k++)
-          cs.push([all[i], all[j], all[k]]);
-    return cs.length ? cs : [[axes[0], partners[0], partners[1]]];
+    for (let i = 0; i < partners.length; i++)
+      for (let j = i + 1; j < partners.length; j++)
+        cs.push([axes[0], partners[i], partners[j]]);
+    // 軸が複数の場合は軸同士＋相手の組み合わせも追加
+    for (let ai = 1; ai < axes.length; ai++)
+      for (let pi = 0; pi < partners.length; pi++)
+        cs.push([axes[0], axes[ai], partners[pi]]);
+    // 軸が3頭以上なら軸だけの3連複も
+    for (let ai = 1; ai < axes.length; ai++)
+      for (let aj = ai + 1; aj < axes.length; aj++)
+        cs.push([axes[0], axes[ai], axes[aj]]);
+    // 重複除去（ソートして文字列比較）
+    const seen = new Set();
+    return cs.filter(c => {
+      const key = [...c].sort().join(',');
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
   }
   if (type === 'sanntan') return partners.map(p => [axes[0], axes[1], p]);
   return [axes.concat(partners)];
@@ -567,11 +618,16 @@ async function saveRace() {
   if (!raceName) { toast('レース名を入力してください'); return; }
   if (!currentBets.length) { toast('買い目を追加してください'); return; }
 
-  const mhmap = {}, rankMap = {};
+  const mhmap = {}, rankMap = {}, markOddsMap = {};
   MARKS_DEF.forEach(m => {
     const h = document.getElementById('mh-' + m.sym).value.trim();
     const r = parseInt(document.getElementById('mr-' + m.sym).value) || null;
-    if (h) { mhmap[m.sym] = h; if (r) rankMap[h] = r; }
+    const o = document.getElementById('mo-' + m.sym).value.trim();
+    if (h) {
+      mhmap[m.sym] = h;
+      if (r) rankMap[h] = r;
+      if (o) markOddsMap[m.sym] = o;
+    }
   });
 
   const bets = currentBets.map(b => {
@@ -580,7 +636,7 @@ async function saveRace() {
     return {...b, result, payout};
   });
 
-  const race = {id: Date.now(), raceName, raceDate, raceCourse, mhmap, rankMap, bets};
+  const race = {id: Date.now(), raceName, raceDate, raceCourse, mhmap, rankMap, markOddsMap, bets};
 
   const btn = document.getElementById('save-race-btn');
   btn.disabled = true;
@@ -621,17 +677,34 @@ async function saveRace() {
 
 // ===== 統計 =====
 function calcStats(races) {
-  const s = {total:{invest:0,payout:0,win:0,lose:0}, byType:{}};
-  Object.keys(TICKET_NAMES).forEach(t => s.byType[t] = {invest:0,payout:0,win:0,lose:0});
-  races.forEach(r => r.bets.forEach(b => {
-    if (b.result === null) return;
-    s.total.invest += b.bet; s.byType[b.type].invest += b.bet;
-    if (b.result === 'win') {
-      const p = b.payout || 0;
-      s.total.payout += p; s.byType[b.type].payout += p;
-      s.total.win++; s.byType[b.type].win++;
-    } else { s.total.lose++; s.byType[b.type].lose++; }
-  }));
+  const s = {total:{invest:0,payout:0,raceWin:0,raceLose:0}, byType:{}};
+  Object.keys(TICKET_NAMES).forEach(t => s.byType[t] = {invest:0,payout:0,raceWin:0,raceLose:0});
+  races.forEach(r => {
+    // 券種ごとにそのレースで的中があったか
+    const typeHit = {};
+    let raceHasResult = false;
+    r.bets.forEach(b => {
+      if (b.result === null) return;
+      raceHasResult = true;
+      s.total.invest += b.bet; s.byType[b.type].invest += b.bet;
+      if (b.result === 'win') {
+        const p = b.payout || 0;
+        s.total.payout += p; s.byType[b.type].payout += p;
+        typeHit[b.type] = true;
+      } else {
+        if (typeHit[b.type] === undefined) typeHit[b.type] = false;
+      }
+    });
+    if (!raceHasResult) return;
+    // レース全体の的中判定（いずれかのbetが的中）
+    const raceWon = r.bets.some(b => b.result === 'win');
+    if (raceWon) s.total.raceWin++; else s.total.raceLose++;
+    // 券種別レース的中判定
+    Object.keys(typeHit).forEach(t => {
+      if (typeHit[t]) s.byType[t].raceWin++;
+      else s.byType[t].raceLose++;
+    });
+  });
   return s;
 }
 
@@ -641,12 +714,16 @@ function calcMonthly(races) {
     const ym = (r.raceDate || '').slice(0, 7); if (!ym) return;
     if (!map[ym]) map[ym] = {invest:0,payout:0,win:0,lose:0,byType:{}};
     Object.keys(TICKET_NAMES).forEach(t => { if (!map[ym].byType[t]) map[ym].byType[t] = {invest:0,payout:0}; });
+    let hasResult = false;
     r.bets.forEach(b => {
       if (b.result === null) return;
+      hasResult = true;
       map[ym].invest += b.bet; map[ym].byType[b.type].invest += b.bet;
-      if (b.result === 'win') { map[ym].payout += b.payout || 0; map[ym].byType[b.type].payout += b.payout || 0; map[ym].win++; }
-      else map[ym].lose++;
+      if (b.result === 'win') { map[ym].payout += b.payout || 0; map[ym].byType[b.type].payout += b.payout || 0; }
     });
+    if (!hasResult) return;
+    if (r.bets.some(b => b.result === 'win')) map[ym].win++;
+    else map[ym].lose++;
   });
   return Object.entries(map).sort((a, b) => a[0] < b[0] ? -1 : 1);
 }
@@ -656,14 +733,17 @@ function calcCourse(races) {
   races.forEach(r => {
     const course = (r.raceCourse || '').trim() || '未設定';
     if (!map[course]) map[course] = {invest:0, payout:0, win:0, lose:0};
+    let hasResult = false;
     r.bets.forEach(b => {
       if (b.result === null) return;
+      hasResult = true;
       map[course].invest += b.bet;
-      if (b.result === 'win') { map[course].payout += b.payout || 0; map[course].win++; }
-      else map[course].lose++;
+      if (b.result === 'win') map[course].payout += b.payout || 0;
     });
+    if (!hasResult) return;
+    if (r.bets.some(b => b.result === 'win')) map[course].win++;
+    else map[course].lose++;
   });
-  // 投資額の多い順に並べる
   return Object.entries(map).sort((a, b) => b[1].invest - a[1].invest);
 }
 
@@ -672,8 +752,8 @@ function renderDash() {
   const st = calcStats(races);
   const profit = st.total.payout - st.total.invest;
   const rec = st.total.invest > 0 ? Math.round(st.total.payout / st.total.invest * 100) : null;
-  const total = st.total.win + st.total.lose;
-  const hitPct = total > 0 ? Math.round(st.total.win / total * 100) : null;
+  const total = st.total.raceWin + st.total.raceLose;
+  const hitPct = total > 0 ? Math.round(st.total.raceWin / total * 100) : null;
 
   const kp = document.getElementById('kpi-profit');
   kp.textContent = (profit >= 0 ? '+' : '') + '¥' + profit.toLocaleString();
@@ -682,7 +762,7 @@ function renderDash() {
   document.getElementById('kpi-rec').textContent = rec !== null ? rec + '%' : '—%';
   document.getElementById('kpi-rec-sub').textContent = '回収¥' + st.total.payout.toLocaleString();
   document.getElementById('kpi-hit').textContent = hitPct !== null ? hitPct + '%' : '—%';
-  document.getElementById('kpi-hit-sub').textContent = st.total.win + '/' + total + '件';
+  document.getElementById('kpi-hit-sub').textContent = st.total.raceWin + '/' + total + 'レース';
 
   const ym = new Date().toISOString().slice(0, 7);
   const monthly = calcMonthly(races);
@@ -703,20 +783,72 @@ function renderDash() {
     const d = st.byType[t];
     const p = d.payout - d.invest;
     const r = d.invest > 0 ? Math.round(d.payout / d.invest * 100) : null;
-    const tot = d.win + d.lose;
-    const h = tot > 0 ? Math.round(d.win / tot * 100) : null;
+    const tot = d.raceWin + d.raceLose;
+    const h = tot > 0 ? Math.round(d.raceWin / tot * 100) : null;
     const div = document.createElement('div');
     div.className = 'tc ' + t;
     div.innerHTML = `<div class="tc-name">${TICKET_NAMES[t]}</div>
       <div class="tc-row"><span>回収率</span><span>${r !== null ? r + '%' : '—'}</span></div>
       <div class="tc-row"><span>的中率</span><span>${h !== null ? h + '%' : '—'}</span></div>
-      <div class="tc-row"><span>収支</span><span style="color:${p > 0 ? 'var(--green)' : p < 0 ? 'var(--red)' : 'var(--text2)'}">${p >= 0 ? '+' : ''}¥${p.toLocaleString()}</span></div>`;
+      <div class="tc-row"><span>収支</span><span style="color:${p > 0 ? 'var(--green)' : p < 0 ? 'var(--red)' : 'var(--text2)'}">${p >= 0 ? '+' : ''}¥${p.toLocaleString()}</span></div>
+      <div class="tc-row"><span>的中</span><span>${d.raceWin}/${tot}R</span></div>`;
     tg.appendChild(div);
   });
 
   renderCharts(races, st, monthly);
   renderMonthlyCards(monthly);
   renderCourseCards(calcCourse(races));
+  renderMarkStats(calcMarkStats(races));
+}
+
+function calcMarkStats(races) {
+  const map = {};
+  MARKS_DEF.forEach(m => { map[m.sym] = {total:0, win:0, invest:0, payout:0}; });
+  races.forEach(r => {
+    MARKS_DEF.forEach(m => {
+      const horse = r.mhmap && r.mhmap[m.sym];
+      if (!horse) return;
+      const rank = r.rankMap && r.rankMap[horse];
+      if (rank === undefined || rank === null) return;
+      const o = parseFloat(r.markOddsMap && r.markOddsMap[m.sym]) || null;
+      map[m.sym].total++;
+      map[m.sym].invest += 100;
+      if (rank === 1) {
+        map[m.sym].win++;
+        if (o) map[m.sym].payout += Math.floor(o * 100);
+      }
+    });
+  });
+  return map;
+}
+
+function renderMarkStats(markData) {
+  const el = document.getElementById('mark-stats-card');
+  const rows = MARKS_DEF.map(m => {
+    const d = markData[m.sym];
+    const hitPct = d.total > 0 ? Math.round(d.win / d.total * 100) : null;
+    const rec = d.invest > 0 ? Math.round(d.payout / d.invest * 100) : null;
+    const recCls = rec === null ? '' : rec >= 100 ? 'color:var(--green)' : 'color:var(--red)';
+    return `<tr>
+      <td style="padding:7px 6px"><span class="mark-sym ${m.cls}" style="width:24px;height:24px;font-size:14px">${m.sym}</span></td>
+      <td style="padding:7px 4px;font-size:12px;color:var(--text2)">${m.name}</td>
+      <td style="padding:7px 4px;font-size:12px;font-family:var(--mono);text-align:center">${d.total > 0 ? d.win + '/' + d.total : '—'}</td>
+      <td style="padding:7px 4px;font-size:13px;font-family:var(--mono);text-align:right;font-weight:500">${hitPct !== null ? hitPct + '%' : '—'}</td>
+      <td style="padding:7px 4px;font-size:13px;font-family:var(--mono);text-align:right;font-weight:500;${recCls}">${rec !== null ? rec + '%' : '—'}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+    <thead>
+      <tr style="border-bottom:1px solid var(--border)">
+        <th style="padding:4px 6px;font-size:10px;color:var(--text3);font-weight:500;text-align:left" colspan="2">印</th>
+        <th style="padding:4px 4px;font-size:10px;color:var(--text3);font-weight:500;text-align:center">1着/出走</th>
+        <th style="padding:4px 4px;font-size:10px;color:var(--text3);font-weight:500;text-align:right">1着率</th>
+        <th style="padding:4px 4px;font-size:10px;color:var(--text3);font-weight:500;text-align:right">単勝回収率</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div style="font-size:10px;color:var(--text3);margin-top:8px">※単勝回収率は100円購入想定。オッズ未入力の場合は回収に含みません。</div>`;
 }
 
 function renderCharts(races, st, monthly) {
@@ -775,7 +907,7 @@ function renderMonthlyCards(monthly) {
       <div class="mc-row"><span>投資</span><span>¥${d.invest.toLocaleString()}</span></div>
       <div class="mc-row"><span>回収</span><span>¥${d.payout.toLocaleString()}</span></div>
       <div class="mc-row"><span>収支</span><span style="color:${p >= 0 ? 'var(--green)' : 'var(--red)'}">${p >= 0 ? '+' : ''}¥${p.toLocaleString()}</span></div>
-      <div class="mc-row"><span>的中</span><span>${d.win}/${d.win + d.lose}件</span></div>
+      <div class="mc-row"><span>的中</span><span>${d.win}/${d.win + d.lose}R</span></div>
       <div class="mc-bar-wrap"><div class="mc-bar" style="width:${barW / 2}%;background:${barColor}"></div></div>
     </div>`;
   }).join('');
@@ -798,7 +930,7 @@ function renderCourseCards(courses) {
       <div class="mc-row"><span>投資</span><span>¥${d.invest.toLocaleString()}</span></div>
       <div class="mc-row"><span>回収</span><span>¥${d.payout.toLocaleString()}</span></div>
       <div class="mc-row"><span>収支</span><span style="color:${p >= 0 ? 'var(--green)' : 'var(--red)'}">${p >= 0 ? '+' : ''}¥${p.toLocaleString()}</span></div>
-      <div class="mc-row"><span>的中</span><span>${d.win}/${d.win + d.lose}件</span></div>
+      <div class="mc-row"><span>的中</span><span>${d.win}/${d.win + d.lose}R</span></div>
       <div class="mc-bar-wrap"><div class="mc-bar" style="width:${barW / 2}%;background:${barColor}"></div></div>
     </div>`;
   }).join('');
@@ -816,7 +948,7 @@ function renderHistory() {
       <div class="hi-top">
         <div><div class="hi-race">${r.raceName}</div>
         <div class="hi-date">${r.raceDate || ''}${r.raceCourse ? ' / ' + r.raceCourse : ''} | ${pr >= 0 ? '+' : ''}¥${pr.toLocaleString()}</div></div>
-        <button class="hi-del" onclick="delRace(${r.id})">✕</button>
+        <button class="hi-edit" onclick="openEditModal(${r.id})">編集</button>
       </div>
       <div class="hi-bets">${r.bets.map(b => `<div class="hi-bet">
         <span class="bet-type bt-${b.type}">${TICKET_NAMES[b.type]}</span>
@@ -826,6 +958,143 @@ function renderHistory() {
       </div>`).join('')}</div>
     </div>`;
   }).join('');
+}
+
+let editingRaceId = null;
+
+function openEditModal(id) {
+  const race = racesCache.find(r => r.id === id);
+  if (!race) return;
+  editingRaceId = id;
+
+  document.getElementById('edit-modal-title').textContent = race.raceName;
+  document.getElementById('edit-modal-sub').textContent =
+    (race.raceDate || '') + (race.raceCourse ? ' / ' + race.raceCourse : '');
+
+  // 印・オッズ・着順エリア
+  const ma = document.getElementById('edit-marks-area');
+  ma.innerHTML = MARKS_DEF.map(m => {
+    const horse = race.mhmap && race.mhmap[m.sym] || '';
+    const rank  = horse && race.rankMap && race.rankMap[horse] || '';
+    const odds  = race.markOddsMap && race.markOddsMap[m.sym] || '';
+    if (!horse) return '';
+    return `<div class="edit-mark-row">
+      <span class="mark-sym ${m.cls}" style="width:24px;height:24px;font-size:14px">${m.sym}</span>
+      <span style="font-size:12px;color:var(--text)">${horse}</span>
+      <div>
+        <div class="edit-input-label">単勝オッズ</div>
+        <input class="edit-input" id="eo-${m.sym}" value="${odds}" placeholder="例 3.5">
+      </div>
+      <div>
+        <div class="edit-input-label">着順</div>
+        <input class="edit-input" id="er-${m.sym}" value="${rank}" placeholder="着">
+      </div>
+    </div>`;
+  }).join('');
+
+  // 買い目エリア
+  const ba = document.getElementById('edit-bets-area');
+  ba.innerHTML = race.bets.map((b, i) => {
+    const resLabel = b.result === 'win' ? '的中' : b.result === 'lose' ? '外れ' : '未確定';
+    const resCls   = b.result === 'win' ? 'br-win' : b.result === 'lose' ? 'br-lose' : 'br-unk';
+    return `<div class="edit-bet-row">
+      <div class="edit-bet-head">
+        <span class="bet-type bt-${b.type}">${TICKET_NAMES[b.type]}</span>
+        <span style="flex:1;font-size:13px">${b.marks.join('-')}</span>
+        <span style="font-size:11px;color:var(--text2)">購入¥${b.bet.toLocaleString()}</span>
+        <span class="bet-result ${resCls}" id="edit-res-badge-${i}">${resLabel}</span>
+      </div>
+      <div class="edit-bet-inputs">
+        <div>
+          <div class="edit-input-label">払戻金額（円）</div>
+          <input class="edit-input" id="ep-${i}" value="${b.payout || ''}" placeholder="的中時のみ"
+            oninput="updateResBadge(${i})">
+        </div>
+        <div>
+          <div class="edit-input-label">結果</div>
+          <select class="edit-input" id="eresult-${i}" onchange="updateResBadge(${i})">
+            <option value=""    ${!b.result         ? 'selected' : ''}>未確定</option>
+            <option value="win" ${b.result==='win'  ? 'selected' : ''}>的中</option>
+            <option value="lose"${b.result==='lose' ? 'selected' : ''}>外れ</option>
+          </select>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('edit-modal-wrap').classList.add('open');
+}
+
+function updateResBadge(i) {
+  const res = document.getElementById('eresult-' + i).value;
+  const badge = document.getElementById('edit-res-badge-' + i);
+  badge.textContent = res === 'win' ? '的中' : res === 'lose' ? '外れ' : '未確定';
+  badge.className = 'bet-result ' + (res === 'win' ? 'br-win' : res === 'lose' ? 'br-lose' : 'br-unk');
+}
+
+function closeEditModal(e) {
+  if (e && e.target !== document.getElementById('edit-modal-wrap')) return;
+  document.getElementById('edit-modal-wrap').classList.remove('open');
+  editingRaceId = null;
+}
+
+async function saveEdit() {
+  const race = racesCache.find(r => r.id === editingRaceId);
+  if (!race) return;
+
+  // 印のオッズ・着順を更新
+  if (!race.markOddsMap) race.markOddsMap = {};
+  MARKS_DEF.forEach(m => {
+    const horse = race.mhmap && race.mhmap[m.sym];
+    if (!horse) return;
+    const oEl = document.getElementById('eo-' + m.sym);
+    const rEl = document.getElementById('er-' + m.sym);
+    if (!oEl) return;
+    const o = oEl.value.trim();
+    const r = rEl.value.trim();
+    if (o) race.markOddsMap[m.sym] = o; else delete race.markOddsMap[m.sym];
+    if (r) race.rankMap[horse] = parseInt(r); else delete race.rankMap[horse];
+  });
+
+  // 買い目の結果・払戻を更新 → 的中判定も再実行
+  race.bets = race.bets.map((b, i) => {
+    const pEl = document.getElementById('ep-' + i);
+    const rEl = document.getElementById('eresult-' + i);
+    if (!pEl) return b;
+    const payout  = parseInt(pEl.value) || null;
+    const result  = rEl.value || null;
+    // 結果未指定なら着順から自動判定を試みる
+    let finalResult = result;
+    if (!finalResult) {
+      finalResult = judgeResult(b, race.mhmap, race.rankMap);
+    }
+    const finalPayout = finalResult === 'win' && payout ? payout
+                      : finalResult === 'lose' ? 0 : payout;
+    return {...b, result: finalResult, payout: finalPayout};
+  });
+
+  document.getElementById('edit-modal-wrap').classList.remove('open');
+  editingRaceId = null;
+
+  setSyncState('loading', '保存中...');
+  try {
+    if (GAS_URL) await apiSave(race);
+    localStorage.setItem('keiba_budget', JSON.stringify(racesCache));
+    setSyncState('ok', '同期済');
+    toast('編集を保存しました ✓');
+  } catch(e) {
+    toast('保存エラー: ' + e.message);
+    setSyncState('err', 'エラー');
+  }
+  renderHistory();
+}
+
+async function editModalDelete() {
+  if (!editingRaceId) return;
+  if (!confirm('このレースを削除しますか？')) return;
+  document.getElementById('edit-modal-wrap').classList.remove('open');
+  await delRace(editingRaceId);
+  editingRaceId = null;
 }
 
 async function delRace(id) {
