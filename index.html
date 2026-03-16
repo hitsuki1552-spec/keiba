@@ -473,10 +473,28 @@ function buildMarkTable() {
       <td><span class="mark-sym ${m.cls}">${m.sym}</span></td>
       <td><input type="text" id="mh-${m.sym}" placeholder="${m.name}の馬名"></td>
       <td><input type="text" id="mo-${m.sym}" placeholder="例 3.5"></td>
-      <td><input type="text" id="mr-${m.sym}" placeholder="着"></td>
+      <td style="display:flex;align-items:center;gap:4px">
+        <input type="text" id="mr-${m.sym}" placeholder="着" style="width:36px" oninput="updateRankBadge('${m.sym}')">
+        <span id="rb-${m.sym}" style="font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;min-width:20px;text-align:center"></span>
+      </td>
     `;
     tbody.appendChild(tr);
   });
+}
+
+function updateRankBadge(sym) {
+  const val = document.getElementById('mr-' + sym).value.trim();
+  const badge = document.getElementById('rb-' + sym);
+  const n = parseInt(val);
+  if (!val || isNaN(n)) { badge.textContent = ''; badge.style.cssText = ''; return; }
+  const styles = {
+    1: 'background:rgba(212,168,83,0.25);color:#f0c060',   // 金
+    2: 'background:rgba(91,155,213,0.25);color:#5b9bd5',   // 青
+    3: 'background:rgba(76,175,130,0.25);color:#4caf82',   // 緑
+  };
+  const style = styles[n] || 'background:rgba(255,255,255,0.07);color:#606060';
+  badge.textContent = n + '着';
+  badge.style.cssText = `font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;${style}`;
 }
 
 function selTicket(t) {
@@ -989,6 +1007,27 @@ function renderHistory() {
   }).join('');
 }
 
+function rankBadgeStyle(val) {
+  const n = parseInt(val);
+  if (!val || isNaN(n)) return '';
+  const styles = {
+    1: 'background:rgba(212,168,83,0.25);color:#f0c060',
+    2: 'background:rgba(91,155,213,0.25);color:#5b9bd5',
+    3: 'background:rgba(76,175,130,0.25);color:#4caf82',
+  };
+  return styles[n] || 'background:rgba(255,255,255,0.07);color:#606060';
+}
+
+function updateEditRankBadge(sym) {
+  const val = document.getElementById('er-' + sym).value.trim();
+  const badge = document.getElementById('erb-' + sym);
+  if (!badge) return;
+  const n = parseInt(val);
+  if (!val || isNaN(n)) { badge.textContent = ''; badge.style.cssText = ''; return; }
+  badge.textContent = n + '着';
+  badge.style.cssText = `font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;${rankBadgeStyle(val)}`;
+}
+
 let editingRaceId = null;
 
 function openEditModal(id) {
@@ -1051,7 +1090,10 @@ function openEditModal(id) {
       </div>
       <div>
         <div class="edit-input-label">着順</div>
-        <input class="edit-input" id="er-${m.sym}" value="${rank}" placeholder="着">
+        <div style="display:flex;align-items:center;gap:4px">
+          <input class="edit-input" id="er-${m.sym}" value="${rank}" placeholder="着" style="width:52px" oninput="updateEditRankBadge('${m.sym}')">
+          <span id="erb-${m.sym}" style="font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;${rankBadgeStyle(rank)}"></span>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -1224,3 +1266,4 @@ function toast(msg) {
 </script>
 </body>
 </html>
+
