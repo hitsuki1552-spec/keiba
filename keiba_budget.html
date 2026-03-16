@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>競馬収支帳</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#0e0f11;--bg2:#161719;--bg3:#1e2023;--bg4:#26282c;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#f0f0ee;--text2:#9a9a96;--text3:#606060;
+  --gold:#d4a853;--gold2:#f0c060;--green:#4caf82;--red:#e05555;
+  --blue:#5b9bd5;--purple:#9b72cf;--orange:#e07840;--pink:#d45b8a;--teal:#3abfb1;
+  --font:'Noto Sans JP',sans-serif;--mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;-webkit-tap-highlight-color:transparent;}
+.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+.header{padding:16px 16px 0;display:flex;align-items:center;justify-content:space-between;}
+.header-title{font-size:18px;font-weight:700;color:var(--gold);letter-spacing:.05em;}
+.header-sub{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--text3);transition:background .3s;}
+.sync-dot.ok{background:var(--green);}.sync-dot.err{background:var(--red);}.sync-dot.loading{background:var(--gold);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.main{flex:1;padding:12px 16px 80px;overflow-y:auto;}
+.section{display:none;}.section.active{display:block;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;}
+.card-title{font-size:11px;font-weight:500;color:var(--text2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;}
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.kpi{background:var(--bg3);border-radius:10px;padding:12px;border:1px solid var(--border);}
+.kpi-label{font-size:10px;color:var(--text3);margin-bottom:4px;letter-spacing:.06em;}
+.kpi-val{font-size:22px;font-weight:700;font-family:var(--mono);}
+.kpi-sub{font-size:10px;color:var(--text3);margin-top:2px;}
+.kpi-val.pos{color:var(--green);}.kpi-val.neg{color:var(--red);}.kpi-val.gold{color:var(--gold2);}
+.ticket-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.tc{background:var(--bg3);border-radius:10px;padding:10px;border-left:3px solid var(--border2);}
+.tc.tan{border-left-color:var(--gold);}.tc.fuku{border-left-color:var(--teal);}
+.tc.uren{border-left-color:var(--blue);}.tc.sanfuku{border-left-color:var(--purple);}
+.tc.sanntan{border-left-color:var(--pink);}.tc.wide{border-left-color:var(--orange);}
+.tc-name{font-size:11px;font-weight:700;letter-spacing:.04em;margin-bottom:5px;}
+.tc.tan .tc-name{color:var(--gold);}.tc.fuku .tc-name{color:var(--teal);}
+.tc.uren .tc-name{color:var(--blue);}.tc.sanfuku .tc-name{color:var(--purple);}
+.tc.sanntan .tc-name{color:var(--pink);}.tc.wide .tc-name{color:var(--orange);}
+.tc-row{display:flex;justify-content:space-between;font-size:10px;color:var(--text2);margin-bottom:2px;}
+.tc-row span:last-child{font-family:var(--mono);color:var(--text);}
+.chart-wrap{position:relative;width:100%;}
+.month-cards{display:flex;flex-direction:column;gap:8px;}
+.month-card{background:var(--bg3);border-radius:10px;padding:12px;border:1px solid var(--border);}
+.mc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.mc-ym{font-size:13px;font-weight:700;color:var(--text);}
+.mc-rec{font-size:16px;font-weight:700;font-family:var(--mono);}
+.mc-rec.pos{color:var(--green);}.mc-rec.neg{color:var(--red);}.mc-rec.even{color:var(--text2);}
+.mc-row{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px;}
+.mc-row span:last-child{font-family:var(--mono);color:var(--text);}
+.mc-bar-wrap{height:3px;background:var(--border);border-radius:2px;margin-top:8px;}
+.mc-bar{height:3px;border-radius:2px;transition:width .4s;}
+.form-row{margin-bottom:10px;}
+.form-label{font-size:11px;color:var(--text2);margin-bottom:4px;display:block;letter-spacing:.05em;}
+.form-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--font);font-size:14px;padding:9px 11px;outline:none;}
+.form-input:focus{border-color:var(--gold);}
+.form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.mark-table{width:100%;border-collapse:collapse;}
+.mark-table th{font-size:10px;color:var(--text3);font-weight:500;padding:4px 4px;text-align:left;border-bottom:1px solid var(--border);}
+.mark-table td{padding:4px 3px;vertical-align:middle;}
+.mark-sym{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;font-size:16px;font-weight:700;}
+.ms-hon{background:rgba(212,168,83,0.2);color:var(--gold2);}
+.ms-tai{background:rgba(91,155,213,0.2);color:var(--blue);}
+.ms-tan{background:rgba(224,120,64,0.2);color:var(--orange);}
+.ms-ren{background:rgba(76,175,130,0.2);color:var(--green);}
+.ms-chu{background:rgba(155,114,207,0.2);color:var(--purple);}
+.mark-table input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font);font-size:12px;padding:5px;outline:none;}
+.mark-table input:focus{border-color:var(--gold);}
+.ticket-sel{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px;}
+.ts-btn{padding:8px 4px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;font-weight:500;font-family:var(--font);cursor:pointer;text-align:center;transition:all .15s;}
+.ts-btn.at {background:rgba(212,168,83,0.15);border-color:var(--gold);color:var(--gold2);}
+.ts-btn.afk{background:rgba(58,191,177,0.15);border-color:var(--teal);color:var(--teal);}
+.ts-btn.au {background:rgba(91,155,213,0.15);border-color:var(--blue);color:var(--blue);}
+.ts-btn.af {background:rgba(155,114,207,0.15);border-color:var(--purple);color:var(--purple);}
+.ts-btn.an {background:rgba(212,91,138,0.15);border-color:var(--pink);color:var(--pink);}
+.ts-btn.aw {background:rgba(224,120,64,0.15);border-color:var(--orange);color:var(--orange);}
+.combo-box{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;}
+.step-label{font-size:10px;color:var(--text3);letter-spacing:.06em;margin-bottom:4px;}
+.step-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;}
+.mark-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.mpill{padding:6px 13px;border-radius:20px;border:1px solid var(--border2);background:var(--bg4);color:var(--text2);font-size:15px;cursor:pointer;transition:all .15s;font-family:var(--font);}
+.mpill.p-hon{background:rgba(212,168,83,0.25);border-color:var(--gold);color:var(--gold2);}
+.mpill.p-tai{background:rgba(91,155,213,0.25);border-color:var(--blue);color:var(--blue);}
+.mpill.p-tan2{background:rgba(224,120,64,0.25);border-color:var(--orange);color:var(--orange);}
+.mpill.p-ren{background:rgba(76,175,130,0.25);border-color:var(--green);color:var(--green);}
+.mpill.p-chu{background:rgba(155,114,207,0.25);border-color:var(--purple);color:var(--purple);}
+.step-hint{font-size:11px;color:var(--gold);margin-top:6px;min-height:16px;font-family:var(--mono);}
+.step-divider{height:1px;background:var(--border);margin:10px 0;}
+.save-btn{width:100%;padding:13px;background:var(--gold);color:#000;border:none;border-radius:10px;font-size:15px;font-weight:700;font-family:var(--font);cursor:pointer;margin-top:4px;transition:opacity .2s;}
+.save-btn:active{opacity:.8;}
+.save-btn:disabled{opacity:.5;cursor:not-allowed;}
+.add-btn{width:100%;padding:10px;background:var(--bg4);color:var(--text);border:1px solid var(--border2);border-radius:8px;font-size:13px;font-weight:500;font-family:var(--font);cursor:pointer;transition:all .15s;}
+.add-btn:hover{border-color:var(--gold);color:var(--gold);}
+.bet-preview-item{display:flex;align-items:center;gap:6px;background:var(--bg3);border-radius:8px;padding:8px 10px;margin-bottom:6px;}
+.bet-type{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;font-family:var(--mono);}
+.bt-tan{background:rgba(212,168,83,0.2);color:var(--gold2);}
+.bt-fuku{background:rgba(58,191,177,0.2);color:var(--teal);}
+.bt-uren{background:rgba(91,155,213,0.2);color:var(--blue);}
+.bt-sanfuku{background:rgba(155,114,207,0.2);color:var(--purple);}
+.bt-sanntan{background:rgba(212,91,138,0.2);color:var(--pink);}
+.bt-wide{background:rgba(224,120,64,0.2);color:var(--orange);}
+.hist-item{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;}
+.hi-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.hi-race{font-size:13px;font-weight:700;}
+.hi-date{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px;}
+.hi-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px;}
+.hi-bets{display:flex;flex-direction:column;gap:4px;}
+.hi-bet{display:flex;align-items:center;gap:6px;font-size:12px;flex-wrap:wrap;}
+.bet-combo{color:var(--text);flex:1;}
+.bet-amt{font-family:var(--mono);color:var(--text2);font-size:11px;white-space:nowrap;}
+.bet-result{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;}
+.br-win{background:rgba(76,175,130,0.2);color:var(--green);}
+.br-lose{background:rgba(224,85,85,0.15);color:var(--red);}
+.br-unk{background:rgba(255,255,255,0.05);color:var(--text3);}
+/* Loading overlay */
+.loading-overlay{position:fixed;inset:0;background:rgba(14,15,17,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:12px;}
+.loading-overlay.hidden{display:none;}
+.loading-spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-msg{font-size:13px;color:var(--text2);}
+/* GAS URL setup banner */
+.setup-banner{background:rgba(212,168,83,0.1);border:1px solid var(--gold);border-radius:10px;padding:14px;margin-bottom:12px;}
+.setup-banner p{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:8px;}
+.setup-banner input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:11px;padding:8px 10px;outline:none;margin-bottom:8px;}
+.setup-banner input:focus{border-color:var(--gold);}
+.setup-save-btn{width:100%;padding:9px;background:var(--gold);color:#000;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--gold);color:#000;padding:9px 20px;border-radius:20px;font-size:13px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .25s;white-space:nowrap;z-index:99;}
+.toast.show{opacity:1;}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--bg2);border-top:1px solid var(--border);display:flex;z-index:10;}
+.nav-btn{flex:1;padding:10px 4px 12px;background:none;border:none;color:var(--text3);font-size:10px;font-family:var(--font);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color .15s;}
+.nav-btn.active{color:var(--gold);}
+.nav-icon{font-size:20px;line-height:1;}
+.empty-msg{text-align:center;color:var(--text3);font-size:13px;padding:32px 0;}
+.divider{height:1px;background:var(--border);margin:10px 0;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <div class="header-title">競馬収支帳</div>
+      <div class="header-sub">KEIBA BUDGET TRACKER</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span style="font-size:10px;color:var(--text3)" id="sync-label">—</span>
+    </div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-msg" id="loading-msg">データを読み込み中...</div>
+  </div>
+
+  <div class="main">
+    <!-- ダッシュボード -->
+    <div class="section active" id="sec-dash">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label">総収支</div><div class="kpi-val" id="kpi-profit">¥0</div><div class="kpi-sub" id="kpi-profit-sub">投資¥0</div></div>
+        <div class="kpi"><div class="kpi-label">総回収率</div><div class="kpi-val gold" id="kpi-rec">—%</div><div class="kpi-sub" id="kpi-rec-sub">回収¥0</div></div>
+        <div class="kpi"><div class="kpi-label">的中率</div><div class="kpi-val" id="kpi-hit">—%</div><div class="kpi-sub" id="kpi-hit-sub">0/0件</div></div>
+        <div class="kpi"><div class="kpi-label">今月収支</div><div class="kpi-val" id="kpi-month">¥0</div><div class="kpi-sub" id="kpi-month-sub">今月回収率—%</div></div>
+      </div>
+      <div class="card-title" style="margin-top:4px">券種別成績</div>
+      <div class="ticket-grid" id="ticket-stats"></div>
+      <div class="card-title" style="margin-top:14px">収支推移</div>
+      <div class="card"><div class="chart-wrap" style="height:180px"><canvas id="chart-profit"></canvas></div></div>
+      <div class="card-title" style="margin-top:4px">月別回収率（券種別）</div>
+      <div class="card"><div class="chart-wrap" style="height:220px"><canvas id="chart-monthly-rec"></canvas></div></div>
+      <div class="card-title" style="margin-top:4px">月別収支</div>
+      <div class="month-cards" id="month-cards"></div>
+    </div>
+
+    <!-- 記録 -->
+    <div class="section" id="sec-record">
+      <div class="form-row">
+        <label class="form-label">レース名</label>
+        <input class="form-input" id="f-race" placeholder="例: 東京11R ヴィクトリアマイル" type="text">
+      </div>
+      <div class="form-grid2">
+        <div class="form-row"><label class="form-label">日付</label><input class="form-input" id="f-date" type="date"></div>
+        <div class="form-row"><label class="form-label">開催場</label><input class="form-input" id="f-course" placeholder="東京・阪神 等" type="text"></div>
+      </div>
+      <div class="card-title" style="margin-top:2px">印・馬名・着順</div>
+      <div class="card" style="padding:10px">
+        <table class="mark-table">
+          <thead><tr><th style="width:32px">印</th><th>馬名</th><th style="width:68px">単勝オッズ</th><th style="width:48px">着順</th></tr></thead>
+          <tbody id="mark-tbody"></tbody>
+        </table>
+      </div>
+      <div class="card-title">買い目を追加</div>
+      <div class="card" style="padding:12px">
+        <div class="form-row" style="margin-bottom:8px">
+          <div class="form-label">券種を選択</div>
+          <div class="ticket-sel">
+            <button class="ts-btn" data-t="tan"     onclick="selTicket('tan')">単勝</button>
+            <button class="ts-btn" data-t="fuku"    onclick="selTicket('fuku')">複勝</button>
+            <button class="ts-btn" data-t="uren"    onclick="selTicket('uren')">馬連</button>
+            <button class="ts-btn" data-t="sanfuku" onclick="selTicket('sanfuku')">3連複</button>
+            <button class="ts-btn" data-t="sanntan" onclick="selTicket('sanntan')">3連単</button>
+            <button class="ts-btn" data-t="wide"    onclick="selTicket('wide')">ワイド</button>
+          </div>
+        </div>
+        <div class="combo-box">
+          <div id="s1">
+            <div class="step-label">STEP 1</div>
+            <div class="step-title" id="s1-title">券種を選んでください</div>
+            <div class="mark-pills" id="s1-pills"></div>
+            <div class="step-hint" id="s1-hint"></div>
+          </div>
+          <div id="s2" style="display:none">
+            <div class="step-divider"></div>
+            <div class="step-label">STEP 2</div>
+            <div class="step-title" id="s2-title">相手馬を選んでください</div>
+            <div class="mark-pills" id="s2-pills"></div>
+            <div class="step-hint" id="s2-hint"></div>
+          </div>
+        </div>
+        <div class="form-grid2" style="margin-bottom:8px">
+          <div class="form-row">
+            <label class="form-label">購入金額（円）</label>
+            <input class="form-input" id="f-bet" type="text" placeholder="100">
+          </div>
+          <div class="form-row">
+            <label class="form-label">払戻金額（円）</label>
+            <input class="form-input" id="f-payout" type="text" placeholder="的中時のみ">
+          </div>
+        </div>
+        <button class="add-btn" onclick="addBet()">+ この買い目を追加</button>
+      </div>
+      <div id="bets-preview"></div>
+      <button class="save-btn" id="save-race-btn" onclick="saveRace()">レースを保存</button>
+    </div>
+
+    <!-- 履歴 -->
+    <div class="section" id="sec-history">
+      <div id="history-list"></div>
+    </div>
+
+    <!-- 設定 -->
+    <div class="section" id="sec-settings">
+      <div class="setup-banner">
+        <p>Google Apps Script の URL を設定するとスマホ・PC でデータを共有できます。<br>設定方法は同封の手順書（keiba_setup.txt）を参照してください。</p>
+        <input type="text" id="gas-url-input" placeholder="https://script.google.com/macros/s/..." spellcheck="false">
+        <button class="setup-save-btn" onclick="saveGasUrl()">URLを保存して接続テスト</button>
+      </div>
+      <div style="background:var(--bg3);border-radius:10px;padding:14px;border:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.08em;margin-bottom:10px">接続状態</div>
+        <div id="conn-status" style="font-size:13px;color:var(--text2)">URLが未設定です</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-sec="dash"     onclick="switchSec('dash')"><span class="nav-icon">📊</span>集計</button>
+    <button class="nav-btn"        data-sec="record"   onclick="switchSec('record')"><span class="nav-icon">✏️</span>記録</button>
+    <button class="nav-btn"        data-sec="history"  onclick="switchSec('history')"><span class="nav-icon">📋</span>履歴</button>
+    <button class="nav-btn"        data-sec="settings" onclick="switchSec('settings')"><span class="nav-icon">⚙️</span>設定</button>
+  </nav>
+</div>
+
+<script>
+// ===== GAS通信層 =====
+// GAS URLはlocalStorageに保存（URLはデバイスごとに設定、データはGASが管理）
+let GAS_URL = localStorage.getItem('keiba_gas_url') || '';
+let racesCache = [];  // メモリキャッシュ
+
+function setSyncState(state, label) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  dot.className = 'sync-dot ' + state;
+  lbl.textContent = label;
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg || 'データを読み込み中...';
+  document.getElementById('loading-overlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.add('hidden');
+}
+
+async function apiGet() {
+  if (!GAS_URL) throw new Error('GAS URLが未設定');
+  const res = await fetch(GAS_URL, { method: 'GET' });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'GET失敗');
+  return json.races;
+}
+
+async function apiSave(race) {
+  if (!GAS_URL) throw new Error('GAS URLが未設定');
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'save', race })
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'SAVE失敗');
+}
+
+async function apiDelete(id) {
+  if (!GAS_URL) throw new Error('GAS URLが未設定');
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'delete', id })
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'DELETE失敗');
+}
+
+async function loadRaces() {
+  if (!GAS_URL) {
+    // GAS未設定ならlocalStorageにフォールバック
+    try { racesCache = JSON.parse(localStorage.getItem('keiba_budget') || '[]'); } catch(e) { racesCache = []; }
+    setSyncState('err', 'ローカル');
+    return;
+  }
+  setSyncState('loading', '同期中...');
+  try {
+    racesCache = await apiGet();
+    setSyncState('ok', '同期済');
+  } catch(e) {
+    console.error(e);
+    setSyncState('err', '接続エラー');
+    try { racesCache = JSON.parse(localStorage.getItem('keiba_budget') || '[]'); } catch(e2) { racesCache = []; }
+    toast('通信エラー: キャッシュを表示しています');
+  }
+}
+
+function saveGasUrl() {
+  const url = document.getElementById('gas-url-input').value.trim();
+  if (!url.startsWith('https://script.google.com/')) {
+    toast('正しいURLを入力してください');return;
+  }
+  GAS_URL = url;
+  localStorage.setItem('keiba_gas_url', url);
+  testConnection();
+}
+
+async function testConnection() {
+  const el = document.getElementById('conn-status');
+  el.textContent = '接続テスト中...';
+  el.style.color = 'var(--gold)';
+  try {
+    const races = await apiGet();
+    el.textContent = `接続OK — ${races.length}件のデータを確認`;
+    el.style.color = 'var(--green)';
+    setSyncState('ok', '同期済');
+    racesCache = races;
+    toast('接続成功！');
+  } catch(e) {
+    el.textContent = '接続失敗: ' + e.message;
+    el.style.color = 'var(--red)';
+    setSyncState('err', '接続エラー');
+  }
+}
+
+// ===== アプリ本体 =====
+const MARKS_DEF = [
+  {sym:'◎',name:'本命',cls:'ms-hon',pcls:'p-hon'},
+  {sym:'○',name:'対抗',cls:'ms-tai',pcls:'p-tai'},
+  {sym:'▲',name:'単穴',cls:'ms-tan',pcls:'p-tan2'},
+  {sym:'△',name:'連下',cls:'ms-ren',pcls:'p-ren'},
+  {sym:'☆',name:'注目',cls:'ms-chu',pcls:'p-chu'},
+];
+const TICKET_NAMES = {tan:'単勝',fuku:'複勝',uren:'馬連',sanfuku:'3連複',sanntan:'3連単',wide:'ワイド'};
+const TICKET_COLORS = {tan:'#d4a853',fuku:'#3abfb1',uren:'#5b9bd5',sanfuku:'#9b72cf',sanntan:'#d45b8a',wide:'#e07840'};
+const TCFG = {
+  tan:    {axisMax:1,partnerMin:0,s1:'軸馬（1着）を1頭選択',s2:'',judge:(a)=>a[0]===1},
+  fuku:   {axisMax:1,partnerMin:0,s1:'馬を1頭選択',s2:'',judge:(a)=>a[0]<=3},
+  uren:   {axisMax:5,partnerMin:1,s1:'軸馬を1頭以上選択（複数可）',s2:'相手馬を1頭以上選択（複数可）',judge:(a,p)=>[...a,...p].every(r=>r<=2)},
+  sanfuku:{axisMax:5,partnerMin:1,s1:'軸馬を1頭以上選択（複数可）',s2:'相手馬を1頭以上選択（複数可）',judge:(a,p)=>[...a,...p].every(r=>r<=3)},
+  sanntan:{axisMax:2,partnerMin:1,s1:'1着・2着馬を順番に2頭選択（1着→2着）',s2:'3着馬を1頭以上選択（複数可）',judge:(a,p)=>a[0]===1&&a[1]===2&&p[0]<=3},
+  wide:   {axisMax:5,partnerMin:1,s1:'軸馬を1頭以上選択（複数可）',s2:'相手馬を1頭以上選択（複数可）',judge:(a,p)=>{const all=[...a,...p];return all.filter(r=>r<=3).length>=2;}},
+};
+
+let selTicketType = null;
+let axisSels = [];
+let partnerSels = [];
+let currentBets = [];
+let charts = {};
+
+document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+buildMarkTable();
+
+// 設定タブにURL表示
+if (GAS_URL) document.getElementById('gas-url-input').value = GAS_URL;
+
+function buildMarkTable() {
+  const tbody = document.getElementById('mark-tbody');
+  tbody.innerHTML = '';
+  MARKS_DEF.forEach(m => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="mark-sym ${m.cls}">${m.sym}</span></td>
+      <td><input type="text" id="mh-${m.sym}" placeholder="${m.name}の馬名"></td>
+      <td><input type="text" id="mo-${m.sym}" placeholder="例 3.5"></td>
+      <td><input type="text" id="mr-${m.sym}" placeholder="着"></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function selTicket(t) {
+  selTicketType = t; axisSels = []; partnerSels = [];
+  const map = {tan:'at',fuku:'afk',uren:'au',sanfuku:'af',sanntan:'an',wide:'aw'};
+  document.querySelectorAll('.ts-btn').forEach(b => {
+    b.className = 'ts-btn' + (b.dataset.t === t ? ' ' + map[t] : '');
+  });
+  renderCombo();
+}
+
+function renderCombo() {
+  const t = selTicketType;
+  if (!t) { document.getElementById('s1-title').textContent = '券種を選んでください'; return; }
+  const cfg = TCFG[t];
+  document.getElementById('s1-title').textContent = cfg.s1;
+  const s1p = document.getElementById('s1-pills');
+  s1p.innerHTML = '';
+  MARKS_DEF.forEach(m => {
+    const idx = axisSels.indexOf(m.sym);
+    const btn = document.createElement('button');
+    let label = m.sym;
+    if (t === 'sanntan' && idx >= 0) label = m.sym + (idx === 0 ? ' ①' : ' ②');
+    btn.className = 'mpill' + (idx >= 0 ? ' ' + m.pcls : '');
+    btn.textContent = label;
+    btn.onclick = () => toggleAxis(m.sym);
+    s1p.appendChild(btn);
+  });
+  const h1 = document.getElementById('s1-hint');
+  if (t === 'sanntan') {
+    if (axisSels.length === 0) h1.textContent = '';
+    else if (axisSels.length === 1) h1.textContent = `1着: ${axisSels[0]}  →  次に2着馬を選択`;
+    else h1.textContent = `1着: ${axisSels[0]}  /  2着: ${axisSels[1]}`;
+  } else {
+    h1.textContent = axisSels.length > 0 ? `軸: ${axisSels.join('  ')}  (${axisSels.length}頭)` : '';
+  }
+  const needAxis = t === 'sanntan' ? 2 : 1;
+  const axisReady = axisSels.length >= needAxis;
+  const s2el = document.getElementById('s2');
+  s2el.style.display = axisReady && cfg.partnerMin > 0 ? '' : 'none';
+  if (axisReady && cfg.partnerMin > 0) {
+    document.getElementById('s2-title').textContent = cfg.s2;
+    const s2p = document.getElementById('s2-pills');
+    s2p.innerHTML = '';
+    MARKS_DEF.forEach(m => {
+      if (axisSels.includes(m.sym)) return;
+      const btn = document.createElement('button');
+      btn.className = 'mpill' + (partnerSels.includes(m.sym) ? ' ' + m.pcls : '');
+      btn.textContent = m.sym;
+      btn.onclick = () => togglePartner(m.sym);
+      s2p.appendChild(btn);
+    });
+    document.getElementById('s2-hint').textContent =
+      partnerSels.length > 0 ? `相手: ${partnerSels.join('  ')}  (${partnerSels.length}頭)` : '';
+  }
+}
+
+function toggleAxis(sym) {
+  if (!selTicketType) return;
+  const cfg = TCFG[selTicketType];
+  const maxAxis = selTicketType === 'sanntan' ? 2 : cfg.axisMax;
+  if (axisSels.includes(sym)) {
+    axisSels = axisSels.filter(s => s !== sym);
+    partnerSels = partnerSels.filter(s => !axisSels.includes(s));
+  } else {
+    if (axisSels.length >= maxAxis) axisSels.shift();
+    axisSels.push(sym);
+    partnerSels = partnerSels.filter(s => !axisSels.includes(s));
+  }
+  renderCombo();
+}
+
+function togglePartner(sym) {
+  if (partnerSels.includes(sym)) partnerSels = partnerSels.filter(s => s !== sym);
+  else partnerSels.push(sym);
+  renderCombo();
+}
+
+function addBet() {
+  if (!selTicketType) { toast('券種を選んでください'); return; }
+  const cfg = TCFG[selTicketType];
+  const needAxis = selTicketType === 'sanntan' ? 2 : 1;
+  if (axisSels.length < needAxis) { toast('軸馬を選んでください'); return; }
+  if (cfg.partnerMin > 0 && partnerSels.length < cfg.partnerMin) { toast(`相手を${cfg.partnerMin}頭以上選んでください`); return; }
+  const bet = parseInt(document.getElementById('f-bet').value) || 0;
+  if (bet <= 0) { toast('購入金額を入力してください'); return; }
+  const payout = parseInt(document.getElementById('f-payout').value) || null;
+  const combos = buildCombos(selTicketType, axisSels, partnerSels);
+  combos.forEach(marks => currentBets.push({type: selTicketType, marks, bet, payout}));
+  axisSels = []; partnerSels = [];
+  document.getElementById('f-bet').value = '';
+  document.getElementById('f-payout').value = '';
+  renderCombo(); renderBetsPreview();
+  toast(`${combos.length}件の買い目を追加`);
+}
+
+function buildCombos(type, axes, partners) {
+  if (type === 'tan' || type === 'fuku') return [[axes[0]]];
+  if (type === 'uren' || type === 'wide') {
+    const cs = [];
+    axes.forEach(a => partners.forEach(p => cs.push([a, p])));
+    for (let i = 0; i < axes.length; i++)
+      for (let j = i + 1; j < axes.length; j++)
+        cs.push([axes[i], axes[j]]);
+    return cs.length ? cs : [[axes[0], partners[0]]];
+  }
+  if (type === 'sanfuku') {
+    const all = [...axes, ...partners];
+    const cs = [];
+    for (let i = 0; i < all.length; i++)
+      for (let j = i + 1; j < all.length; j++)
+        for (let k = j + 1; k < all.length; k++)
+          cs.push([all[i], all[j], all[k]]);
+    return cs.length ? cs : [[axes[0], partners[0], partners[1]]];
+  }
+  if (type === 'sanntan') return partners.map(p => [axes[0], axes[1], p]);
+  return [axes.concat(partners)];
+}
+
+function renderBetsPreview() {
+  const el = document.getElementById('bets-preview');
+  if (!currentBets.length) { el.innerHTML = ''; return; }
+  const total = currentBets.reduce((s, b) => s + b.bet, 0);
+  el.innerHTML = `<div class="card-title" style="margin-top:4px">追加済み買い目 (${currentBets.length}件 / 計¥${total.toLocaleString()})</div>` +
+    currentBets.map((b, i) => `
+      <div class="bet-preview-item">
+        <span class="bet-type bt-${b.type}">${TICKET_NAMES[b.type]}</span>
+        <span style="font-size:13px;flex:1">${b.marks.join('-')}</span>
+        <span style="font-size:11px;color:var(--text2);font-family:var(--mono)">¥${b.bet.toLocaleString()}${b.payout ? ' / 払¥' + b.payout.toLocaleString() : ''}</span>
+        <button onclick="removeBet(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
+      </div>`).join('');
+}
+
+function removeBet(i) { currentBets.splice(i, 1); renderBetsPreview(); }
+
+function judgeResult(bet, mhmap, rankMap) {
+  const cfg = TCFG[bet.type];
+  const axisMarks = bet.type === 'sanntan' ? [bet.marks[0], bet.marks[1]] : [bet.marks[0]];
+  const partnerMarks = bet.type === 'sanntan' ? [bet.marks[2]] : bet.marks.slice(1);
+  const getRank = m => { const h = mhmap[m]; return h ? (rankMap[h] || null) : null; };
+  const aRanks = axisMarks.map(getRank);
+  const pRanks = partnerMarks.map(getRank);
+  const allRanks = bet.marks.map(getRank);
+  if (allRanks.some(r => r === null)) return null;
+  try { return cfg.judge(aRanks, pRanks) ? 'win' : 'lose'; } catch(e) { return null; }
+}
+
+async function saveRace() {
+  const raceName = document.getElementById('f-race').value.trim();
+  const raceDate = document.getElementById('f-date').value;
+  const raceCourse = document.getElementById('f-course').value.trim();
+  if (!raceName) { toast('レース名を入力してください'); return; }
+  if (!currentBets.length) { toast('買い目を追加してください'); return; }
+
+  const mhmap = {}, rankMap = {};
+  MARKS_DEF.forEach(m => {
+    const h = document.getElementById('mh-' + m.sym).value.trim();
+    const r = parseInt(document.getElementById('mr-' + m.sym).value) || null;
+    if (h) { mhmap[m.sym] = h; if (r) rankMap[h] = r; }
+  });
+
+  const bets = currentBets.map(b => {
+    const result = judgeResult(b, mhmap, rankMap);
+    const payout = result === 'win' && b.payout ? b.payout : result === 'lose' ? 0 : b.payout;
+    return {...b, result, payout};
+  });
+
+  const race = {id: Date.now(), raceName, raceDate, raceCourse, mhmap, rankMap, bets};
+
+  const btn = document.getElementById('save-race-btn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+  setSyncState('loading', '保存中...');
+
+  try {
+    if (GAS_URL) {
+      await apiSave(race);
+      racesCache.unshift(race);
+      // localStorageにもバックアップ
+      localStorage.setItem('keiba_budget', JSON.stringify(racesCache));
+      setSyncState('ok', '同期済');
+    } else {
+      racesCache.unshift(race);
+      localStorage.setItem('keiba_budget', JSON.stringify(racesCache));
+      setSyncState('err', 'ローカル');
+    }
+    toast('保存しました ✓');
+  } catch(e) {
+    toast('保存エラー: ' + e.message);
+    setSyncState('err', 'エラー');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'レースを保存';
+
+  document.getElementById('f-race').value = '';
+  document.getElementById('f-course').value = '';
+  MARKS_DEF.forEach(m => {
+    document.getElementById('mh-' + m.sym).value = '';
+    document.getElementById('mo-' + m.sym).value = '';
+    document.getElementById('mr-' + m.sym).value = '';
+  });
+  currentBets = []; axisSels = []; partnerSels = [];
+  renderBetsPreview(); renderCombo();
+}
+
+// ===== 統計 =====
+function calcStats(races) {
+  const s = {total:{invest:0,payout:0,win:0,lose:0}, byType:{}};
+  Object.keys(TICKET_NAMES).forEach(t => s.byType[t] = {invest:0,payout:0,win:0,lose:0});
+  races.forEach(r => r.bets.forEach(b => {
+    if (b.result === null) return;
+    s.total.invest += b.bet; s.byType[b.type].invest += b.bet;
+    if (b.result === 'win') {
+      const p = b.payout || 0;
+      s.total.payout += p; s.byType[b.type].payout += p;
+      s.total.win++; s.byType[b.type].win++;
+    } else { s.total.lose++; s.byType[b.type].lose++; }
+  }));
+  return s;
+}
+
+function calcMonthly(races) {
+  const map = {};
+  races.forEach(r => {
+    const ym = (r.raceDate || '').slice(0, 7); if (!ym) return;
+    if (!map[ym]) map[ym] = {invest:0,payout:0,win:0,lose:0,byType:{}};
+    Object.keys(TICKET_NAMES).forEach(t => { if (!map[ym].byType[t]) map[ym].byType[t] = {invest:0,payout:0}; });
+    r.bets.forEach(b => {
+      if (b.result === null) return;
+      map[ym].invest += b.bet; map[ym].byType[b.type].invest += b.bet;
+      if (b.result === 'win') { map[ym].payout += b.payout || 0; map[ym].byType[b.type].payout += b.payout || 0; map[ym].win++; }
+      else map[ym].lose++;
+    });
+  });
+  return Object.entries(map).sort((a, b) => a[0] < b[0] ? -1 : 1);
+}
+
+function renderDash() {
+  const races = racesCache;
+  const st = calcStats(races);
+  const profit = st.total.payout - st.total.invest;
+  const rec = st.total.invest > 0 ? Math.round(st.total.payout / st.total.invest * 100) : null;
+  const total = st.total.win + st.total.lose;
+  const hitPct = total > 0 ? Math.round(st.total.win / total * 100) : null;
+
+  const kp = document.getElementById('kpi-profit');
+  kp.textContent = (profit >= 0 ? '+' : '') + '¥' + profit.toLocaleString();
+  kp.className = 'kpi-val ' + (profit > 0 ? 'pos' : profit < 0 ? 'neg' : '');
+  document.getElementById('kpi-profit-sub').textContent = '投資¥' + st.total.invest.toLocaleString();
+  document.getElementById('kpi-rec').textContent = rec !== null ? rec + '%' : '—%';
+  document.getElementById('kpi-rec-sub').textContent = '回収¥' + st.total.payout.toLocaleString();
+  document.getElementById('kpi-hit').textContent = hitPct !== null ? hitPct + '%' : '—%';
+  document.getElementById('kpi-hit-sub').textContent = st.total.win + '/' + total + '件';
+
+  const ym = new Date().toISOString().slice(0, 7);
+  const monthly = calcMonthly(races);
+  const thisM = monthly.find(([k]) => k === ym);
+  if (thisM) {
+    const [, d] = thisM;
+    const mp = d.payout - d.invest;
+    const mr = d.invest > 0 ? Math.round(d.payout / d.invest * 100) : null;
+    const km = document.getElementById('kpi-month');
+    km.textContent = (mp >= 0 ? '+' : '') + '¥' + mp.toLocaleString();
+    km.className = 'kpi-val ' + (mp > 0 ? 'pos' : mp < 0 ? 'neg' : '');
+    document.getElementById('kpi-month-sub').textContent = '今月回収率' + (mr !== null ? mr + '%' : '—%');
+  }
+
+  const tg = document.getElementById('ticket-stats');
+  tg.innerHTML = '';
+  Object.keys(TICKET_NAMES).forEach(t => {
+    const d = st.byType[t];
+    const p = d.payout - d.invest;
+    const r = d.invest > 0 ? Math.round(d.payout / d.invest * 100) : null;
+    const tot = d.win + d.lose;
+    const h = tot > 0 ? Math.round(d.win / tot * 100) : null;
+    const div = document.createElement('div');
+    div.className = 'tc ' + t;
+    div.innerHTML = `<div class="tc-name">${TICKET_NAMES[t]}</div>
+      <div class="tc-row"><span>回収率</span><span>${r !== null ? r + '%' : '—'}</span></div>
+      <div class="tc-row"><span>的中率</span><span>${h !== null ? h + '%' : '—'}</span></div>
+      <div class="tc-row"><span>収支</span><span style="color:${p > 0 ? 'var(--green)' : p < 0 ? 'var(--red)' : 'var(--text2)'}">${p >= 0 ? '+' : ''}¥${p.toLocaleString()}</span></div>`;
+    tg.appendChild(div);
+  });
+
+  renderCharts(races, st, monthly);
+  renderMonthlyCards(monthly);
+}
+
+function renderCharts(races, st, monthly) {
+  let cum = 0;
+  const pl = [], pd = [];
+  [...races].reverse().forEach(r => {
+    r.bets.forEach(b => { if (b.result === null) return; cum += (b.payout || 0) - b.bet; });
+    pl.push(r.raceDate ? r.raceDate.slice(5) : '');
+    pd.push(cum);
+  });
+  if (charts['p']) charts['p'].destroy();
+  charts['p'] = new Chart(document.getElementById('chart-profit').getContext('2d'), {
+    type: 'line',
+    data: {labels: pl, datasets: [{data: pd, borderColor: '#d4a853',
+      backgroundColor: (ctx) => { const g = ctx.chart.ctx.createLinearGradient(0,0,0,160); g.addColorStop(0,'rgba(212,168,83,0.3)'); g.addColorStop(1,'rgba(212,168,83,0)'); return g; },
+      fill: true, tension: 0.4, pointRadius: pd.length > 15 ? 0 : 3, pointBackgroundColor: '#d4a853', borderWidth: 2}]},
+    options: {responsive: true, maintainAspectRatio: false, plugins: {legend: {display: false}},
+      scales: {x: {ticks: {color:'#606060',font:{size:9},maxTicksLimit:6}, grid: {color:'rgba(255,255,255,0.04)'}},
+        y: {ticks: {color:'#606060',font:{size:9},callback:v=>(v>=0?'+':'')+Math.round(v)}, grid: {color:'rgba(255,255,255,0.06)'}}}}
+  });
+
+  if (charts['mr']) charts['mr'].destroy();
+  const mLabels = monthly.map(([k]) => { const [y, m] = k.split('-'); return y + '/' + (+m) + '月'; });
+  const datasets = Object.keys(TICKET_NAMES).map(t => ({
+    label: TICKET_NAMES[t],
+    data: monthly.map(([, d]) => { const td = d.byType[t]; return td && td.invest > 0 ? Math.round(td.payout / td.invest * 100) : null; }),
+    borderColor: TICKET_COLORS[t], backgroundColor: 'transparent', tension: 0.3,
+    pointRadius: 3, pointBackgroundColor: TICKET_COLORS[t], borderWidth: 2, spanGaps: true,
+  }));
+  datasets.push({label:'基準(100%)', data: monthly.map(() => 100), borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'transparent', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, tension: 0});
+  charts['mr'] = new Chart(document.getElementById('chart-monthly-rec').getContext('2d'), {
+    type: 'line', data: {labels: mLabels, datasets},
+    options: {responsive: true, maintainAspectRatio: false,
+      plugins: {legend: {display: true, labels: {color:'#9a9a96',font:{size:10},boxWidth:8,padding:8}}},
+      scales: {x: {ticks:{color:'#606060',font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'}},
+        y: {ticks:{color:'#606060',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(255,255,255,0.06)'},suggestedMin:0,suggestedMax:200}}}
+  });
+}
+
+function renderMonthlyCards(monthly) {
+  const el = document.getElementById('month-cards');
+  if (!monthly.length) { el.innerHTML = '<div class="empty-msg">まだ記録がありません</div>'; return; }
+  el.innerHTML = [...monthly].reverse().map(([ym, d]) => {
+    const p = d.payout - d.invest;
+    const r = d.invest > 0 ? Math.round(d.payout / d.invest * 100) : null;
+    const [y, m] = ym.split('-');
+    const recCls = r === null ? 'even' : r >= 100 ? 'pos' : 'neg';
+    const barW = r !== null ? Math.min(r, 200) : 0;
+    const barColor = r === null ? '#606060' : r >= 100 ? '#4caf82' : '#e05555';
+    return `<div class="month-card">
+      <div class="mc-head">
+        <div class="mc-ym">${y}年${+m}月</div>
+        <div class="mc-rec ${recCls}">${r !== null ? r + '%' : '—%'}</div>
+      </div>
+      <div class="mc-row"><span>投資</span><span>¥${d.invest.toLocaleString()}</span></div>
+      <div class="mc-row"><span>回収</span><span>¥${d.payout.toLocaleString()}</span></div>
+      <div class="mc-row"><span>収支</span><span style="color:${p >= 0 ? 'var(--green)' : 'var(--red)'}">${p >= 0 ? '+' : ''}¥${p.toLocaleString()}</span></div>
+      <div class="mc-row"><span>的中</span><span>${d.win}/${d.win + d.lose}件</span></div>
+      <div class="mc-bar-wrap"><div class="mc-bar" style="width:${barW / 2}%;background:${barColor}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderHistory() {
+  const races = racesCache;
+  const list = document.getElementById('history-list');
+  if (!races.length) { list.innerHTML = '<div class="empty-msg">まだ記録がありません</div>'; return; }
+  list.innerHTML = races.map(r => {
+    const tb = r.bets.reduce((s, b) => s + b.bet, 0);
+    const tp = r.bets.filter(b => b.result === 'win').reduce((s, b) => s + (b.payout || 0), 0);
+    const pr = tp - tb;
+    return `<div class="hist-item">
+      <div class="hi-top">
+        <div><div class="hi-race">${r.raceName}</div>
+        <div class="hi-date">${r.raceDate || ''}${r.raceCourse ? ' / ' + r.raceCourse : ''} | ${pr >= 0 ? '+' : ''}¥${pr.toLocaleString()}</div></div>
+        <button class="hi-del" onclick="delRace(${r.id})">✕</button>
+      </div>
+      <div class="hi-bets">${r.bets.map(b => `<div class="hi-bet">
+        <span class="bet-type bt-${b.type}">${TICKET_NAMES[b.type]}</span>
+        <span class="bet-combo">${b.marks.join('-')}${b.marks.map(m => r.mhmap && r.mhmap[m] ? `<span style="font-size:10px;color:var(--text3)">(${r.mhmap[m]})</span>` : '').join('')}</span>
+        <span class="bet-amt">¥${b.bet.toLocaleString()}</span>
+        <span class="bet-result ${b.result === 'win' ? 'br-win' : b.result === 'lose' ? 'br-lose' : 'br-unk'}">${b.result === 'win' ? '的中 ¥' + (b.payout || 0).toLocaleString() : b.result === 'lose' ? '外れ' : '未確定'}</span>
+      </div>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+async function delRace(id) {
+  setSyncState('loading', '削除中...');
+  try {
+    if (GAS_URL) await apiDelete(id);
+    racesCache = racesCache.filter(r => r.id !== id);
+    localStorage.setItem('keiba_budget', JSON.stringify(racesCache));
+    setSyncState('ok', '同期済');
+    toast('削除しました');
+    renderHistory();
+  } catch(e) {
+    toast('削除エラー: ' + e.message);
+    setSyncState('err', 'エラー');
+  }
+}
+
+async function switchSec(s) {
+  document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+  document.getElementById('sec-' + s).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.sec === s));
+  if (s === 'dash') {
+    showLoading('データを読み込み中...');
+    await loadRaces();
+    hideLoading();
+    renderDash();
+  }
+  if (s === 'history') {
+    showLoading('履歴を読み込み中...');
+    await loadRaces();
+    hideLoading();
+    renderHistory();
+  }
+  if (s === 'settings') {
+    document.getElementById('gas-url-input').value = GAS_URL;
+    if (GAS_URL) {
+      document.getElementById('conn-status').textContent = 'URL設定済 — テストボタンで確認';
+      document.getElementById('conn-status').style.color = 'var(--text2)';
+    }
+  }
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ===== 初期化 =====
+(async () => {
+  showLoading('データを読み込み中...');
+  await loadRaces();
+  hideLoading();
+  renderDash();
+})();
+</script>
+</body>
+</html>
