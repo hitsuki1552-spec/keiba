@@ -651,7 +651,7 @@ function judgeResult(bet, mhmap, rankMap) {
   const aRanks = axisMarks.map(getRank);
   const pRanks = partnerMarks.map(getRank);
   const allRanks = bet.marks.map(getRank);
-  if (allRanks.some(r => r === null)) return null;
+  if (allRanks.some(r => r === null)) return 'lose';
   try { return cfg.judge(aRanks, pRanks) ? 'win' : 'lose'; } catch(e) { return null; }
 }
 
@@ -899,11 +899,18 @@ function renderMarkStats(markData) {
 }
 
 function renderCharts(races, st, monthly) {
+  // 同じ日付のレースを合算して1点にまとめる
+  const dateMap = new Map();
+  [...races].reverse().forEach(r => {
+    const date = r.raceDate || '';
+    const diff = r.bets.reduce((s, b) => b.result === null ? s : s + (b.payout || 0) - b.bet, 0);
+    dateMap.set(date, (dateMap.get(date) || 0) + diff);
+  });
   let cum = 0;
   const pl = [], pd = [];
-  [...races].reverse().forEach(r => {
-    r.bets.forEach(b => { if (b.result === null) return; cum += (b.payout || 0) - b.bet; });
-    pl.push(r.raceDate ? r.raceDate.slice(5) : '');
+  dateMap.forEach((diff, date) => {
+    cum += diff;
+    pl.push(date ? date.slice(5) : '');
     pd.push(cum);
   });
   if (charts['p']) charts['p'].destroy();
