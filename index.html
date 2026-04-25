@@ -158,6 +158,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .edit-save-btn{padding:12px;background:var(--gold);color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:var(--font);cursor:pointer;}
 .hi-edit{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text3);cursor:pointer;font-size:11px;padding:3px 8px;font-family:var(--font);}
 .edit-delete-btn{width:100%;margin-top:10px;padding:11px;background:none;color:var(--red);border:1px solid rgba(224,85,85,0.3);border-radius:10px;font-size:13px;font-family:var(--font);cursor:pointer;}
+.hf-btn{padding:5px 11px;border-radius:20px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:12px;font-family:var(--font);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.hf-btn.active{background:var(--gold);color:#000;border-color:var(--gold);font-weight:700;}
 </style>
 </head>
 <body>
@@ -174,7 +176,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
 
   <!-- Loading overlay -->
-  <div class="loading-overlay" id="loading-overlay">
+  <div class="loading-overlay hidden" id="loading-overlay">
     <div class="loading-spinner"></div>
     <div class="loading-msg" id="loading-msg">データを読み込み中...</div>
   </div>
@@ -240,7 +242,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div class="card-title" style="margin-top:2px">印・馬名・着順</div>
       <div class="card" style="padding:10px">
         <table class="mark-table">
-          <thead><tr><th style="width:32px">印</th><th>馬名</th><th style="width:68px">単勝オッズ</th><th style="width:48px">着順</th></tr></thead>
+          <thead><tr><th style="width:32px">印</th><th style="width:36px">馬番</th><th>馬名</th><th style="width:60px">単勝オッズ</th><th style="width:48px">着順</th></tr></thead>
           <tbody id="mark-tbody"></tbody>
         </table>
       </div>
@@ -272,24 +274,49 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
             <div class="step-hint" id="s2-hint"></div>
           </div>
         </div>
-        <div class="form-grid2" style="margin-bottom:8px">
-          <div class="form-row">
-            <label class="form-label">購入金額（円）</label>
-            <input class="form-input" id="f-bet" type="text" placeholder="100">
-          </div>
-          <div class="form-row">
-            <label class="form-label">払戻金額（円）</label>
-            <input class="form-input" id="f-payout" type="text" placeholder="的中時のみ">
-          </div>
+        <div class="form-row" style="margin-bottom:8px">
+          <label class="form-label">1点あたりの購入金額（円）</label>
+          <input class="form-input" id="f-bet" type="text" placeholder="100">
         </div>
         <button class="add-btn" onclick="addBet()">+ この買い目を追加</button>
       </div>
       <div id="bets-preview"></div>
+
+      <div class="card-title" style="margin-top:4px">配当入力</div>
+      <div class="card" style="padding:12px" id="payout-input-area">
+        <div style="font-size:12px;color:var(--text3);text-align:center;padding:8px 0">買い目を追加すると券種ごとに表示されます</div>
+      </div>
+
       <button class="save-btn" id="save-race-btn" onclick="saveRace()">レースを保存</button>
     </div>
 
     <!-- 履歴 -->
     <div class="section" id="sec-history">
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;letter-spacing:.06em">日付フィルター</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+          <input type="date" id="hist-date-filter" class="form-input" style="flex:1;font-size:13px;padding:7px 9px"
+            onchange="setHistDateFilter(this.value)">
+          <button onclick="setHistDateFilter('')" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:12px;padding:7px 10px;cursor:pointer;font-family:var(--font);white-space:nowrap">クリア</button>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;letter-spacing:.06em">印フィルター（1着的中）</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="hist-filter-marks">
+          <button class="hf-btn" data-mark="all" onclick="setHistFilter('all')">すべて</button>
+          <button class="hf-btn" data-mark="◎" onclick="setHistFilter('◎')">◎ 本命</button>
+          <button class="hf-btn" data-mark="○" onclick="setHistFilter('○')">○ 対抗</button>
+          <button class="hf-btn" data-mark="▲" onclick="setHistFilter('▲')">▲ 単穴</button>
+          <button class="hf-btn" data-mark="△" onclick="setHistFilter('△')">△ 連下</button>
+          <button class="hf-btn" data-mark="☆" onclick="setHistFilter('☆')">☆ 注目</button>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px;letter-spacing:.06em">結果フィルター</div>
+        <div style="display:flex;gap:6px" id="hist-filter-result">
+          <button class="hf-btn hf-result" data-result="all"  onclick="setHistResultFilter('all')">すべて</button>
+          <button class="hf-btn hf-result" data-result="win"  onclick="setHistResultFilter('win')">的中のみ</button>
+          <button class="hf-btn hf-result" data-result="lose" onclick="setHistResultFilter('lose')">外れのみ</button>
+        </div>
+      </div>
+      <div id="hist-count" style="font-size:11px;color:var(--text3);margin-bottom:8px"></div>
+      <div id="hist-date-summary"></div>
       <div id="history-list"></div>
     </div>
 
@@ -356,9 +383,16 @@ function hideLoading() {
   document.getElementById('loading-overlay').classList.add('hidden');
 }
 
+function fetchWithTimeout(url, options, ms = 10000) {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('通信タイムアウト（10秒）')), ms))
+  ]);
+}
+
 async function apiGet() {
   if (!GAS_URL) throw new Error('GAS URLが未設定');
-  const res = await fetch(GAS_URL, { method: 'GET' });
+  const res = await fetchWithTimeout(GAS_URL, { method: 'GET' });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || 'GET失敗');
   return json.races;
@@ -366,7 +400,7 @@ async function apiGet() {
 
 async function apiSave(race) {
   if (!GAS_URL) throw new Error('GAS URLが未設定');
-  const res = await fetch(GAS_URL, {
+  const res = await fetchWithTimeout(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'save', race })
@@ -377,7 +411,7 @@ async function apiSave(race) {
 
 async function apiDelete(id) {
   if (!GAS_URL) throw new Error('GAS URLが未設定');
-  const res = await fetch(GAS_URL, {
+  const res = await fetchWithTimeout(GAS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({ action: 'delete', id })
@@ -387,21 +421,28 @@ async function apiDelete(id) {
 }
 
 async function loadRaces() {
+  // まずlocalStorageから読む（常に実行・絶対止まらない）
+  try {
+    const local = localStorage.getItem('keiba_budget');
+    racesCache = local ? JSON.parse(local) : [];
+  } catch(e) {
+    racesCache = [];
+  }
+  // GAS未設定ならローカルのまま返す
   if (!GAS_URL) {
-    // GAS未設定ならlocalStorageにフォールバック
-    try { racesCache = JSON.parse(localStorage.getItem('keiba_budget') || '[]'); } catch(e) { racesCache = []; }
     setSyncState('err', 'ローカル');
     return;
   }
+  // GAS設定済みの場合のみ追加で同期（失敗してもローカルデータは表示済み）
   setSyncState('loading', '同期中...');
   try {
-    racesCache = await apiGet();
+    const remote = await apiGet();
+    racesCache = remote;
+    try { localStorage.setItem('keiba_budget', JSON.stringify(racesCache)); } catch(e) {}
     setSyncState('ok', '同期済');
   } catch(e) {
-    console.error(e);
     setSyncState('err', '接続エラー');
-    try { racesCache = JSON.parse(localStorage.getItem('keiba_budget') || '[]'); } catch(e2) { racesCache = []; }
-    toast('通信エラー: キャッシュを表示しています');
+    toast('GAS接続エラー: ローカルデータを表示します');
   }
 }
 
@@ -471,7 +512,8 @@ function buildMarkTable() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class="mark-sym ${m.cls}">${m.sym}</span></td>
-      <td><input type="text" id="mh-${m.sym}" placeholder="${m.name}の馬名"></td>
+      <td><input type="text" id="mn-${m.sym}" placeholder="#" style="text-align:center"></td>
+      <td><input type="text" id="mh-${m.sym}" placeholder="${m.name}の馬名（任意）"></td>
       <td><input type="text" id="mo-${m.sym}" placeholder="例 3.5"></td>
       <td style="display:flex;align-items:center;gap:4px">
         <input type="text" id="mr-${m.sym}" placeholder="着" style="width:36px" oninput="updateRankBadge('${m.sym}')">
@@ -581,12 +623,10 @@ function addBet() {
   if (cfg.partnerMin > 0 && partnerSels.length < cfg.partnerMin) { toast(`相手を${cfg.partnerMin}頭以上選んでください`); return; }
   const bet = parseInt(document.getElementById('f-bet').value) || 0;
   if (bet <= 0) { toast('購入金額を入力してください'); return; }
-  const payout = parseInt(document.getElementById('f-payout').value) || null;
   const combos = buildCombos(selTicketType, axisSels, partnerSels);
-  combos.forEach(marks => currentBets.push({type: selTicketType, marks, bet, payout}));
+  combos.forEach(marks => currentBets.push({type: selTicketType, marks, bet, payout: null}));
   axisSels = []; partnerSels = [];
   document.getElementById('f-bet').value = '';
-  document.getElementById('f-payout').value = '';
   renderCombo(); renderBetsPreview();
   toast(`${combos.length}件の買い目を追加`);
 }
@@ -629,16 +669,71 @@ function buildCombos(type, axes, partners) {
 
 function renderBetsPreview() {
   const el = document.getElementById('bets-preview');
-  if (!currentBets.length) { el.innerHTML = ''; return; }
+  if (!currentBets.length) {
+    el.innerHTML = '';
+    renderPayoutInputArea();
+    return;
+  }
   const total = currentBets.reduce((s, b) => s + b.bet, 0);
   el.innerHTML = `<div class="card-title" style="margin-top:4px">追加済み買い目 (${currentBets.length}件 / 計¥${total.toLocaleString()})</div>` +
     currentBets.map((b, i) => `
       <div class="bet-preview-item">
         <span class="bet-type bt-${b.type}">${TICKET_NAMES[b.type]}</span>
         <span style="font-size:13px;flex:1">${b.marks.join('-')}</span>
-        <span style="font-size:11px;color:var(--text2);font-family:var(--mono)">¥${b.bet.toLocaleString()}${b.payout ? ' / 払¥' + b.payout.toLocaleString() : ''}</span>
+        <span style="font-size:11px;color:var(--text2);font-family:var(--mono)">¥${b.bet.toLocaleString()}</span>
         <button onclick="removeBet(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
       </div>`).join('');
+  renderPayoutInputArea();
+}
+
+function renderPayoutInputArea() {
+  const area = document.getElementById('payout-input-area');
+  if (!area) return;
+  if (!currentBets.length) {
+    area.innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px 0">買い目を追加すると券種ごとに表示されます</div>';
+    return;
+  }
+  // 券種ごとにグループ化してUIを生成
+  const typeMap = {};
+  currentBets.forEach(b => {
+    if (!typeMap[b.type]) typeMap[b.type] = {type:b.type, bets:[], totalBet:0};
+    typeMap[b.type].bets.push(b);
+    typeMap[b.type].totalBet += b.bet;
+  });
+  area.innerHTML = Object.values(typeMap).map((g, gi) => {
+    const comboStr = g.bets.map(b=>b.marks.join('-')).join(' · ');
+    return `<div style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <span class="bet-type bt-${g.type}">${TICKET_NAMES[g.type]}</span>
+        <span style="font-size:11px;color:var(--text2);flex:1">${comboStr}</span>
+        <span style="font-size:11px;color:var(--text2)">計¥${g.totalBet.toLocaleString()}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        <div>
+          <div class="form-label">内的中金額（円）</div>
+          <input class="form-input" id="pib-${gi}" type="text" placeholder="例 100"
+            oninput="calcRecordPayout(${gi})" style="font-size:13px;padding:7px 9px">
+        </div>
+        <div>
+          <div class="form-label">配当金額（円）</div>
+          <input class="form-input" id="pdv-${gi}" type="text" placeholder="例 1000"
+            oninput="calcRecordPayout(${gi})" style="font-size:13px;padding:7px 9px">
+        </div>
+        <div>
+          <div class="form-label">払戻金額（自動）</div>
+          <input class="form-input" id="ppv-${gi}" type="text" placeholder="自動計算"
+            readonly style="font-size:13px;padding:7px 9px;color:var(--gold)">
+        </div>
+      </div>
+    </div>`;
+  }).join('<div style="height:1px;background:var(--border);margin:4px 0 12px"></div>');
+}
+
+function calcRecordPayout(gi) {
+  const ib = parseInt(document.getElementById('pib-' + gi).value) || 0;
+  const dv = parseInt(document.getElementById('pdv-' + gi).value) || 0;
+  const pEl = document.getElementById('ppv-' + gi);
+  pEl.value = (ib > 0 && dv > 0) ? Math.floor(ib * dv / 100) : '';
 }
 
 function removeBet(i) { currentBets.splice(i, 1); renderBetsPreview(); }
@@ -652,7 +747,7 @@ function judgeResult(bet, mhmap, rankMap) {
   const pRanks = partnerMarks.map(getRank);
   const allRanks = bet.marks.map(getRank);
   if (allRanks.some(r => r === null)) return 'lose';
-  try { return cfg.judge(aRanks, pRanks) ? 'win' : 'lose'; } catch(e) { return null; }
+  try { return cfg.judge(aRanks, pRanks) ? 'win' : 'lose'; } catch(e) { return 'lose'; }
 }
 
 async function saveRace() {
@@ -664,25 +759,45 @@ async function saveRace() {
   if (!raceName) { toast('レース名またはレース番号を入力してください'); return; }
   if (!currentBets.length) { toast('買い目を追加してください'); return; }
 
-  const mhmap = {}, rankMap = {}, markOddsMap = {};
+  const mhmap = {}, rankMap = {}, markOddsMap = {}, markNumMap = {};
   MARKS_DEF.forEach(m => {
     const h = document.getElementById('mh-' + m.sym).value.trim();
+    const n = document.getElementById('mn-' + m.sym).value.trim();
     const r = parseInt(document.getElementById('mr-' + m.sym).value) || null;
     const o = document.getElementById('mo-' + m.sym).value.trim();
-    if (h) {
-      mhmap[m.sym] = h;
-      if (r) rankMap[h] = r;
+    // 馬名か馬番どちらかあれば記録。馬名がない場合は印を識別キーとして使う
+    const key = h || (n ? n + '番' : null) || m.sym;
+    const hasInput = h || n || r || o;
+    if (hasInput) {
+      mhmap[m.sym] = h || key;
+      if (n) markNumMap[m.sym] = n;
+      if (r) rankMap[mhmap[m.sym]] = r;
       if (o) markOddsMap[m.sym] = o;
     }
   });
 
-  const bets = currentBets.map(b => {
+  // 券種ごとにグループ化（同一券種の買い目をまとめる）
+  const typeKeys = [];
+  const groupMap = {};
+  currentBets.forEach(b => {
+    if (!groupMap[b.type]) { groupMap[b.type] = {type:b.type, bets:[], payout:null}; typeKeys.push(b.type); }
     const result = judgeResult(b, mhmap, rankMap);
-    const payout = result === 'win' && b.payout ? b.payout : result === 'lose' ? 0 : b.payout;
-    return {...b, result, payout};
+    groupMap[b.type].bets.push({...b, result, payout:null});
   });
+  // 配当入力エリアから値を読み取る（typeKeysの順番 = gi）
+  typeKeys.forEach((t, gi) => {
+    const g = groupMap[t];
+    const ib = parseInt((document.getElementById('pib-'+gi)||{}).value) || null;
+    const dv = parseInt((document.getElementById('pdv-'+gi)||{}).value) || null;
+    const pv = parseInt((document.getElementById('ppv-'+gi)||{}).value) || null;
+    g.innerBet = ib;
+    g.dividend = dv;
+    const gHasWin = g.bets.some(b=>b.result==='win');
+    g.payout = gHasWin ? (pv || (ib&&dv ? Math.floor(ib*dv/100) : null)) : 0;
+  });
+  const betGroups = typeKeys.map(t => groupMap[t]);
 
-  const race = {id: Date.now(), raceName, raceDate, raceCourse, mhmap, rankMap, markOddsMap, bets};
+  const race = {id: Date.now(), raceName, raceDate, raceCourse, mhmap, rankMap, markOddsMap, markNumMap, betGroups};
 
   const btn = document.getElementById('save-race-btn');
   btn.disabled = true;
@@ -714,39 +829,84 @@ async function saveRace() {
   document.getElementById('f-racenum').value = '';
   document.getElementById('f-course').value = '';
   MARKS_DEF.forEach(m => {
+    document.getElementById('mn-' + m.sym).value = '';
     document.getElementById('mh-' + m.sym).value = '';
     document.getElementById('mo-' + m.sym).value = '';
     document.getElementById('mr-' + m.sym).value = '';
+    updateRankBadge(m.sym);
   });
   currentBets = []; axisSels = []; partnerSels = [];
   renderBetsPreview(); renderCombo();
 }
 
 // ===== 統計 =====
+// 後方互換: 旧形式(bets配列)と新形式(betGroups)の両方に対応
+function getAllBets(r) {
+  if (r.betGroups) {
+    return r.betGroups.flatMap(g => g.bets.map(b => ({
+      ...b,
+      // グループの払戻をbetごとに按分せず、グループ払戻をそのまま使う
+      groupPayout: g.payout,
+      groupTotalBet: g.bets.reduce((s, bb) => s + bb.bet, 0),
+    })));
+  }
+  return r.bets || [];
+}
+
+// グループ単位の払戻を取得（的中グループのみ）
+function getGroupPayout(r) {
+  if (r.betGroups) {
+    return r.betGroups.reduce((s, g) => {
+      const hasWin = g.bets.some(b => b.result === 'win');
+      return s + (hasWin && g.payout ? g.payout : 0);
+    }, 0);
+  }
+  // 旧形式
+  return (r.bets || []).filter(b => b.result === 'win').reduce((s, b) => s + (b.payout || 0), 0);
+}
+
+function getTotalBet(r) {
+  if (r.betGroups) {
+    return r.betGroups.reduce((s, g) => s + g.bets.reduce((ss, b) => ss + b.bet, 0), 0);
+  }
+  return (r.bets || []).reduce((s, b) => s + b.bet, 0);
+}
+
+function raceHasWin(r) {
+  if (r.betGroups) return r.betGroups.some(g => g.bets.some(b => b.result === 'win'));
+  return (r.bets || []).some(b => b.result === 'win');
+}
+
 function calcStats(races) {
   const s = {total:{invest:0,payout:0,raceWin:0,raceLose:0}, byType:{}};
   Object.keys(TICKET_NAMES).forEach(t => s.byType[t] = {invest:0,payout:0,raceWin:0,raceLose:0});
   races.forEach(r => {
-    // 券種ごとにそのレースで的中があったか
     const typeHit = {};
     let raceHasResult = false;
-    r.bets.forEach(b => {
-      if (b.result === null) return;
-      raceHasResult = true;
-      s.total.invest += b.bet; s.byType[b.type].invest += b.bet;
-      if (b.result === 'win') {
-        const p = b.payout || 0;
-        s.total.payout += p; s.byType[b.type].payout += p;
-        typeHit[b.type] = true;
-      } else {
-        if (typeHit[b.type] === undefined) typeHit[b.type] = false;
+    const groups = r.betGroups || [{type: null, bets: r.bets || [], payout: null}];
+    groups.forEach(g => {
+      const gPayout = g.payout || 0;
+      const gBets = g.bets || [];
+      const gTotalBet = gBets.reduce((s, b) => s + b.bet, 0);
+      const gHasWin = gBets.some(b => b.result === 'win');
+      gBets.forEach(b => {
+        if (b.result === null) return;
+        raceHasResult = true;
+        const t = b.type || g.type;
+        s.total.invest += b.bet;
+        if (s.byType[t]) s.byType[t].invest += b.bet;
+        if (typeHit[t] === undefined) typeHit[t] = false;
+      });
+      // 払戻はグループ単位で加算（的中グループのみ）
+      if (gHasWin && gPayout) {
+        s.total.payout += gPayout;
+        const t = g.type || (gBets[0] && gBets[0].type);
+        if (t && s.byType[t]) s.byType[t].payout += gPayout;
+        if (t) typeHit[t] = true;
       }
     });
     if (!raceHasResult) return;
-    // レース全体の的中判定（いずれかのbetが的中）
-    const raceWon = r.bets.some(b => b.result === 'win');
-    if (raceWon) s.total.raceWin++; else s.total.raceLose++;
-    // 券種別レース的中判定
+    if (raceHasWin(r)) s.total.raceWin++; else s.total.raceLose++;
     Object.keys(typeHit).forEach(t => {
       if (typeHit[t]) s.byType[t].raceWin++;
       else s.byType[t].raceLose++;
@@ -761,16 +921,19 @@ function calcMonthly(races) {
     const ym = (r.raceDate || '').slice(0, 7); if (!ym) return;
     if (!map[ym]) map[ym] = {invest:0,payout:0,win:0,lose:0,byType:{}};
     Object.keys(TICKET_NAMES).forEach(t => { if (!map[ym].byType[t]) map[ym].byType[t] = {invest:0,payout:0}; });
-    let hasResult = false;
-    r.bets.forEach(b => {
-      if (b.result === null) return;
-      hasResult = true;
-      map[ym].invest += b.bet; map[ym].byType[b.type].invest += b.bet;
-      if (b.result === 'win') { map[ym].payout += b.payout || 0; map[ym].byType[b.type].payout += b.payout || 0; }
-    });
+    const allBets = getAllBets(r);
+    let hasResult = allBets.some(b => b.result !== null);
     if (!hasResult) return;
-    if (r.bets.some(b => b.result === 'win')) map[ym].win++;
-    else map[ym].lose++;
+    map[ym].invest += getTotalBet(r);
+    map[ym].payout += getGroupPayout(r);
+    const groups = r.betGroups || [{type: null, bets: r.bets||[], payout: null}];
+    groups.forEach(g => {
+      const t = g.type || (g.bets&&g.bets[0]&&g.bets[0].type);
+      if (!t || !map[ym].byType[t]) return;
+      map[ym].byType[t].invest += (g.bets||[]).reduce((s,b)=>s+b.bet,0);
+      if (g.bets.some(b=>b.result==='win') && g.payout) map[ym].byType[t].payout += g.payout;
+    });
+    if (raceHasWin(r)) map[ym].win++; else map[ym].lose++;
   });
   return Object.entries(map).sort((a, b) => a[0] < b[0] ? -1 : 1);
 }
@@ -780,16 +943,11 @@ function calcCourse(races) {
   races.forEach(r => {
     const course = (r.raceCourse || '').trim() || '未設定';
     if (!map[course]) map[course] = {invest:0, payout:0, win:0, lose:0};
-    let hasResult = false;
-    r.bets.forEach(b => {
-      if (b.result === null) return;
-      hasResult = true;
-      map[course].invest += b.bet;
-      if (b.result === 'win') map[course].payout += b.payout || 0;
-    });
-    if (!hasResult) return;
-    if (r.bets.some(b => b.result === 'win')) map[course].win++;
-    else map[course].lose++;
+    const allBets = getAllBets(r);
+    if (!allBets.some(b => b.result !== null)) return;
+    map[course].invest += getTotalBet(r);
+    map[course].payout += getGroupPayout(r);
+    if (raceHasWin(r)) map[course].win++; else map[course].lose++;
   });
   return Object.entries(map).sort((a, b) => b[1].invest - a[1].invest);
 }
@@ -850,8 +1008,9 @@ function renderDash() {
 
 function calcMarkStats(races) {
   const map = {};
-  MARKS_DEF.forEach(m => { map[m.sym] = {total:0, win:0, invest:0, payout:0}; });
+  MARKS_DEF.forEach(m => { map[m.sym] = {total:0, win:0, invest:0, payout:0, urenInvest:0, urenPayout:0, urenTotal:0, urenWin:0}; });
   races.forEach(r => {
+    // 単勝集計（印ごと）
     MARKS_DEF.forEach(m => {
       const horse = r.mhmap && r.mhmap[m.sym];
       if (!horse) return;
@@ -865,6 +1024,34 @@ function calcMarkStats(races) {
         if (o) map[m.sym].payout += Math.floor(o * 100);
       }
     });
+
+    // 馬連集計（印ペアごとに各印へ集計）
+    const syms = MARKS_DEF.map(m => m.sym);
+    for (let i = 0; i < syms.length; i++) {
+      for (let j = i + 1; j < syms.length; j++) {
+        const a = syms[i], b = syms[j];
+        const ha = r.mhmap && r.mhmap[a];
+        const hb = r.mhmap && r.mhmap[b];
+        if (!ha || !hb) continue;
+        const ra = r.rankMap && r.rankMap[ha];
+        const rb = r.rankMap && r.rankMap[hb];
+        if (!ra || !rb) continue;
+        // このペアの馬連が成立している（両馬に着順あり）
+        const key = a + '-' + b;
+        const payoutVal = r.urenPayoutMap && r.urenPayoutMap[key];
+        const hit = payoutVal ? true : false; // 配当入力あり = 的中
+
+        // a印・b印それぞれに集計
+        [a, b].forEach(sym => {
+          map[sym].urenTotal++;
+          map[sym].urenInvest += 100;
+          if (hit) {
+            map[sym].urenWin++;
+            map[sym].urenPayout += payoutVal;
+          }
+        });
+      }
+    }
   });
   return map;
 }
@@ -876,12 +1063,15 @@ function renderMarkStats(markData) {
     const hitPct = d.total > 0 ? Math.round(d.win / d.total * 100) : null;
     const rec = d.invest > 0 ? Math.round(d.payout / d.invest * 100) : null;
     const recCls = rec === null ? '' : rec >= 100 ? 'color:var(--green)' : 'color:var(--red)';
-    return `<tr>
+    const urenRec = d.urenInvest > 0 ? Math.round(d.urenPayout / d.urenInvest * 100) : null;
+    const urenCls = urenRec === null ? '' : urenRec >= 100 ? 'color:var(--green)' : 'color:var(--red)';
+    return `<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:7px 6px"><span class="mark-sym ${m.cls}" style="width:24px;height:24px;font-size:14px">${m.sym}</span></td>
       <td style="padding:7px 4px;font-size:12px;color:var(--text2)">${m.name}</td>
       <td style="padding:7px 4px;font-size:12px;font-family:var(--mono);text-align:center">${d.total > 0 ? d.win + '/' + d.total : '—'}</td>
       <td style="padding:7px 4px;font-size:13px;font-family:var(--mono);text-align:right;font-weight:500">${hitPct !== null ? hitPct + '%' : '—'}</td>
       <td style="padding:7px 4px;font-size:13px;font-family:var(--mono);text-align:right;font-weight:500;${recCls}">${rec !== null ? rec + '%' : '—'}</td>
+      <td style="padding:7px 4px;font-size:13px;font-family:var(--mono);text-align:right;font-weight:500;${urenCls}">${urenRec !== null ? urenRec + '%' : '—'}</td>
     </tr>`;
   }).join('');
   el.innerHTML = `<table style="width:100%;border-collapse:collapse">
@@ -891,24 +1081,24 @@ function renderMarkStats(markData) {
         <th style="padding:4px 4px;font-size:10px;color:var(--text3);font-weight:500;text-align:center">1着/出走</th>
         <th style="padding:4px 4px;font-size:10px;color:var(--text3);font-weight:500;text-align:right">1着率</th>
         <th style="padding:4px 4px;font-size:10px;color:var(--text3);font-weight:500;text-align:right">単勝回収率</th>
+        <th style="padding:4px 4px;font-size:10px;color:var(--text3);font-weight:500;text-align:right">馬連回収率</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>
-  <div style="font-size:10px;color:var(--text3);margin-top:8px">※単勝回収率は100円購入想定。オッズ未入力の場合は回収に含みません。</div>`;
+  <div style="font-size:10px;color:var(--text3);margin-top:8px">※各回収率は100円購入想定。配当未入力は外れ扱い。</div>`;
 }
 
 function renderCharts(races, st, monthly) {
-  // 同じ日付のレースを合算して1点にまとめる
-  const dateMap = new Map();
+  const dateMap2 = new Map();
   [...races].reverse().forEach(r => {
     const date = r.raceDate || '';
-    const diff = r.bets.reduce((s, b) => b.result === null ? s : s + (b.payout || 0) - b.bet, 0);
-    dateMap.set(date, (dateMap.get(date) || 0) + diff);
+    const diff = getGroupPayout(r) - getTotalBet(r);
+    dateMap2.set(date, (dateMap2.get(date) || 0) + diff);
   });
   let cum = 0;
   const pl = [], pd = [];
-  dateMap.forEach((diff, date) => {
+  dateMap2.forEach((diff, date) => {
     cum += diff;
     pl.push(date ? date.slice(5) : '');
     pd.push(cum);
@@ -990,26 +1180,149 @@ function renderCourseCards(courses) {
   }).join('');
 }
 
+let histMarkFilter = 'all';
+let histResultFilter = 'all';
+let histDateFilter = '';
+
+function setHistFilter(mark) {
+  histMarkFilter = mark;
+  document.querySelectorAll('#hist-filter-marks .hf-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mark === mark));
+  renderHistory();
+}
+
+function setHistResultFilter(result) {
+  histResultFilter = result;
+  document.querySelectorAll('#hist-filter-result .hf-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.result === result));
+  renderHistory();
+}
+
+function setHistDateFilter(date) {
+  histDateFilter = date;
+  const el = document.getElementById('hist-date-filter');
+  if (el) el.value = date;
+  renderHistory();
+}
+
+function raceMatchesMarkFilter(r, mark) {
+  if (mark === 'all') return true;
+  // その印の馬が着順1位かどうか
+  const horse = r.mhmap && r.mhmap[mark];
+  if (!horse) return false;
+  const rank = r.rankMap && r.rankMap[horse];
+  return rank === 1;
+}
+
+function raceMatchesResultFilter(r, result) {
+  if (result === 'all') return true;
+  const hasWin  = raceHasWin(r);
+  const allBets = getAllBets(r);
+  const hasLose = allBets.some(b => b.result === 'lose');
+  if (result === 'win')  return hasWin;
+  if (result === 'lose') return !hasWin && hasLose;
+  return true;
+}
+
 function renderHistory() {
   const races = racesCache;
   const list = document.getElementById('history-list');
-  if (!races.length) { list.innerHTML = '<div class="empty-msg">まだ記録がありません</div>'; return; }
-  list.innerHTML = races.map(r => {
-    const tb = r.bets.reduce((s, b) => s + b.bet, 0);
-    const tp = r.bets.filter(b => b.result === 'win').reduce((s, b) => s + (b.payout || 0), 0);
+  const countEl = document.getElementById('hist-count');
+  const summaryEl = document.getElementById('hist-date-summary');
+  if (!races.length) {
+    if (countEl) countEl.textContent = '';
+    if (summaryEl) summaryEl.innerHTML = '';
+    list.innerHTML = '<div class="empty-msg">まだ記録がありません</div>';
+    return;
+  }
+
+  const filtered = races.filter(r =>
+    (!histDateFilter || r.raceDate === histDateFilter) &&
+    raceMatchesMarkFilter(r, histMarkFilter) &&
+    raceMatchesResultFilter(r, histResultFilter)
+  );
+
+  // 日付選択中は成績サマリーを表示
+  if (summaryEl) {
+    if (histDateFilter && filtered.length > 0) {
+      const totalBet = filtered.reduce((s,r) => s + getTotalBet(r), 0);
+      const totalPay = filtered.reduce((s,r) => s + getGroupPayout(r), 0);
+      const profit = totalPay - totalBet;
+      const rec = totalBet > 0 ? Math.round(totalPay / totalBet * 100) : null;
+      const wins = filtered.filter(r => raceHasWin(r)).length;
+      const [y, m, d] = histDateFilter.split('-');
+      const recCls = rec === null ? '' : rec >= 100 ? 'color:var(--green)' : 'color:var(--red)';
+      const profCls = profit >= 0 ? 'color:var(--green)' : 'color:var(--red)';
+      summaryEl.innerHTML = `
+        <div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px">${y}年${+m}月${+d}日の成績</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <div style="font-size:11px;color:var(--text2)">投資 <span style="font-family:var(--mono);color:var(--text)">¥${totalBet.toLocaleString()}</span></div>
+            <div style="font-size:11px;color:var(--text2)">回収 <span style="font-family:var(--mono);color:var(--text)">¥${totalPay.toLocaleString()}</span></div>
+            <div style="font-size:11px;color:var(--text2)">収支 <span style="font-family:var(--mono);${profCls}">${profit>=0?'+':''}¥${profit.toLocaleString()}</span></div>
+            <div style="font-size:11px;color:var(--text2)">回収率 <span style="font-family:var(--mono);${recCls}">${rec!==null?rec+'%':'—'}</span></div>
+            <div style="font-size:11px;color:var(--text2)">的中 <span style="font-family:var(--mono);color:var(--text)">${wins}/${filtered.length}R</span></div>
+          </div>
+        </div>`;
+    } else {
+      summaryEl.innerHTML = '';
+    }
+  }
+
+  if (countEl) {
+    const parts = [];
+    if (histDateFilter) parts.push(histDateFilter);
+    if (histMarkFilter !== 'all') parts.push(`${histMarkFilter} 1着的中`);
+    if (histResultFilter !== 'all') parts.push(histResultFilter === 'win' ? '的中' : '外れ');
+    countEl.textContent = `${parts.length ? parts.join(' / ') : 'すべて'}: ${filtered.length}件 / 全${races.length}件`;
+  }
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty-msg">条件に一致するレースがありません</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(r => {
+    const tb = getTotalBet(r);
+    const tp = getGroupPayout(r);
     const pr = tp - tb;
+    // グループ表示用HTML生成
+    const groups = r.betGroups || [{type: (r.bets&&r.bets[0]&&r.bets[0].type)||'tan', bets: r.bets||[], payout: null}];
+    const groupsHtml = groups.map(g => {
+      const gBets = g.bets || [];
+      const gTotalBet = gBets.reduce((s,b)=>s+b.bet,0);
+      const gHasWin = gBets.some(b=>b.result==='win');
+      const gResultCls = gHasWin ? 'br-win' : 'br-lose';
+      const gResultLabel = gHasWin
+        ? `的中 払¥${(g.payout||0).toLocaleString()}` +
+          (g.innerBet && g.dividend ? `<span style="font-size:9px;color:var(--text3);margin-left:4px">(¥${g.innerBet}×${g.dividend})</span>` : '')
+        : '外れ';
+      const comboLines = gBets.map(b => {
+        const marksStr = b.marks.join('-');
+        const marksLabel = b.marks.map(m => {
+          const num  = r.markNumMap && r.markNumMap[m] ? r.markNumMap[m]+'番' : '';
+          const name = r.mhmap && r.mhmap[m] && !r.mhmap[m].endsWith('番') ? r.mhmap[m] : '';
+          const label = [num, name].filter(Boolean).join(' ');
+          return label ? `<span style="font-size:10px;color:var(--text3)">(${label})</span>` : '';
+        }).join('');
+        const resCls = b.result==='win'?'br-win':b.result==='lose'?'br-lose':'br-unk';
+        const resLabel = b.result==='win'?'○':b.result==='lose'?'✕':'?';
+        return `<span style="font-size:11px;color:var(--text2)">${marksStr}${marksLabel}<span class="bet-result ${resCls}" style="padding:1px 4px;font-size:9px;margin-left:3px">${resLabel}</span></span>`;
+      }).join('<span style="color:var(--text3);margin:0 3px">·</span>');
+      return `<div class="hi-bet" style="align-items:flex-start;flex-wrap:nowrap;gap:6px;padding:4px 0;border-bottom:0.5px solid var(--border)">
+        <span class="bet-type bt-${g.type}">${TICKET_NAMES[g.type]}</span>
+        <span style="flex:1;display:flex;flex-wrap:wrap;gap:4px;align-items:center">${comboLines}</span>
+        <span class="bet-amt" style="white-space:nowrap">¥${gTotalBet.toLocaleString()}</span>
+        <span class="bet-result ${gResultCls}" style="white-space:nowrap">${gResultLabel}</span>
+      </div>`;
+    }).join('');
     return `<div class="hist-item">
       <div class="hi-top">
         <div><div class="hi-race">${r.raceName}</div>
-        <div class="hi-date">${r.raceDate || ''}${r.raceCourse ? ' / ' + r.raceCourse : ''} | ${pr >= 0 ? '+' : ''}¥${pr.toLocaleString()}</div></div>
+        <div class="hi-date">${r.raceDate||''}${r.raceCourse?' / '+r.raceCourse:''} | ${pr>=0?'+':''}¥${pr.toLocaleString()}</div></div>
         <button class="hi-edit" onclick="openEditModal(${r.id})">編集</button>
       </div>
-      <div class="hi-bets">${r.bets.map(b => `<div class="hi-bet">
-        <span class="bet-type bt-${b.type}">${TICKET_NAMES[b.type]}</span>
-        <span class="bet-combo">${b.marks.join('-')}${b.marks.map(m => r.mhmap && r.mhmap[m] ? `<span style="font-size:10px;color:var(--text3)">(${r.mhmap[m]})</span>` : '').join('')}</span>
-        <span class="bet-amt">¥${b.bet.toLocaleString()}</span>
-        <span class="bet-result ${b.result === 'win' ? 'br-win' : b.result === 'lose' ? 'br-lose' : 'br-unk'}">${b.result === 'win' ? '的中 ¥' + (b.payout || 0).toLocaleString() : b.result === 'lose' ? '外れ' : '未確定'}</span>
-      </div>`).join('')}</div>
+      <div class="hi-bets" style="gap:0">${groupsHtml}</div>
     </div>`;
   }).join('');
 }
@@ -1081,16 +1394,23 @@ function openEditModal(id) {
     </div>
   `;
 
-  // 印・オッズ・着順エリア
+  // 印・馬番・オッズ・着順エリア
   const ma = document.getElementById('edit-marks-area');
   ma.innerHTML = MARKS_DEF.map(m => {
     const horse = race.mhmap && race.mhmap[m.sym] || '';
+    const num   = race.markNumMap && race.markNumMap[m.sym] || '';
     const rank  = horse && race.rankMap && race.rankMap[horse] || '';
     const odds  = race.markOddsMap && race.markOddsMap[m.sym] || '';
-    if (!horse) return '';
-    return `<div class="edit-mark-row">
+    return `<div style="display:grid;grid-template-columns:28px 44px 1fr 72px 68px;gap:5px;align-items:center;margin-bottom:6px">
       <span class="mark-sym ${m.cls}" style="width:24px;height:24px;font-size:14px">${m.sym}</span>
-      <span style="font-size:12px;color:var(--text)">${horse}</span>
+      <div>
+        <div class="edit-input-label">馬番</div>
+        <input class="edit-input" id="en-${m.sym}" value="${num}" placeholder="#">
+      </div>
+      <div>
+        <div class="edit-input-label">馬名（任意）</div>
+        <input class="edit-input" id="eh-${m.sym}" value="${horse}" placeholder="${m.name}の馬名">
+      </div>
       <div>
         <div class="edit-input-label">単勝オッズ</div>
         <input class="edit-input" id="eo-${m.sym}" value="${odds}" placeholder="例 3.5">
@@ -1098,38 +1418,50 @@ function openEditModal(id) {
       <div>
         <div class="edit-input-label">着順</div>
         <div style="display:flex;align-items:center;gap:4px">
-          <input class="edit-input" id="er-${m.sym}" value="${rank}" placeholder="着" style="width:52px" oninput="updateEditRankBadge('${m.sym}')">
-          <span id="erb-${m.sym}" style="font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;${rankBadgeStyle(rank)}"></span>
+          <input class="edit-input" id="er-${m.sym}" value="${rank}" placeholder="着" style="width:42px" oninput="updateEditRankBadge('${m.sym}')">
+          <span id="erb-${m.sym}" style="font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;white-space:nowrap;${rankBadgeStyle(rank)}">${rank ? rank+'着' : ''}</span>
         </div>
       </div>
     </div>`;
   }).join('');
 
-  // 買い目エリア
+  // 買い目エリア（グループ単位）
   const ba = document.getElementById('edit-bets-area');
-  ba.innerHTML = race.bets.map((b, i) => {
-    const resLabel = b.result === 'win' ? '的中' : b.result === 'lose' ? '外れ' : '未確定';
-    const resCls   = b.result === 'win' ? 'br-win' : b.result === 'lose' ? 'br-lose' : 'br-unk';
+  const groups = race.betGroups || [{type:(race.bets&&race.bets[0]&&race.bets[0].type)||'tan', bets:race.bets||[], payout:null}];
+  ba.innerHTML = groups.map((g, gi) => {
+    const gBets = g.bets || [];
+    const gTotalBet = gBets.reduce((s,b)=>s+b.bet,0);
+    const gHasWin = gBets.some(b=>b.result==='win');
+    const comboList = gBets.map(b => {
+      const resCls = b.result==='win'?'br-win':b.result==='lose'?'br-lose':'br-unk';
+      const resLbl = b.result==='win'?'○':b.result==='lose'?'✕':'?';
+      return `<span style="font-size:12px;color:var(--text2)">${b.marks.join('-')}<span class="bet-result ${resCls}" style="padding:1px 4px;font-size:9px;margin-left:2px">${resLbl}</span></span>`;
+    }).join('<span style="color:var(--text3);margin:0 2px">·</span>');
+    const innerBet = g.innerBet || '';
+    const dividend = g.dividend || '';
+    const payout = g.payout || '';
     return `<div class="edit-bet-row">
       <div class="edit-bet-head">
-        <span class="bet-type bt-${b.type}">${TICKET_NAMES[b.type]}</span>
-        <span style="flex:1;font-size:13px">${b.marks.join('-')}</span>
-        <span style="font-size:11px;color:var(--text2)">購入¥${b.bet.toLocaleString()}</span>
-        <span class="bet-result ${resCls}" id="edit-res-badge-${i}">${resLabel}</span>
+        <span class="bet-type bt-${g.type}">${TICKET_NAMES[g.type]}</span>
+        <span style="flex:1;font-size:12px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">${comboList}</span>
+        <span style="font-size:11px;color:var(--text2)">計¥${gTotalBet.toLocaleString()}</span>
+        <span style="font-size:11px;font-weight:700;color:${gHasWin?'var(--green)':'var(--red)'}">${gHasWin?'的中':'外れ'}</span>
       </div>
-      <div class="edit-bet-inputs">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px">
         <div>
-          <div class="edit-input-label">払戻金額（円）</div>
-          <input class="edit-input" id="ep-${i}" value="${b.payout || ''}" placeholder="的中時のみ"
-            oninput="updateResBadge(${i})">
+          <div class="edit-input-label">内的中金額（円）</div>
+          <input class="edit-input" id="eib-${gi}" value="${innerBet}" placeholder="例 100"
+            oninput="calcPayout(${gi})">
         </div>
         <div>
-          <div class="edit-input-label">結果</div>
-          <select class="edit-input" id="eresult-${i}" onchange="updateResBadge(${i})">
-            <option value=""    ${!b.result         ? 'selected' : ''}>未確定</option>
-            <option value="win" ${b.result==='win'  ? 'selected' : ''}>的中</option>
-            <option value="lose"${b.result==='lose' ? 'selected' : ''}>外れ</option>
-          </select>
+          <div class="edit-input-label">配当金額（円）</div>
+          <input class="edit-input" id="edv-${gi}" value="${dividend}" placeholder="例 1000"
+            oninput="calcPayout(${gi})">
+        </div>
+        <div>
+          <div class="edit-input-label">払戻金額（自動）</div>
+          <input class="edit-input" id="egp-${gi}" value="${payout}" placeholder="自動計算"
+            style="color:var(--gold)" readonly>
         </div>
       </div>
     </div>`;
@@ -1139,10 +1471,25 @@ function openEditModal(id) {
 }
 
 function updateResBadge(i) {
-  const res = document.getElementById('eresult-' + i).value;
+  const res = document.getElementById('eresult-' + i);
+  if (!res) return;
   const badge = document.getElementById('edit-res-badge-' + i);
-  badge.textContent = res === 'win' ? '的中' : res === 'lose' ? '外れ' : '未確定';
-  badge.className = 'bet-result ' + (res === 'win' ? 'br-win' : res === 'lose' ? 'br-lose' : 'br-unk');
+  if (!badge) return;
+  badge.textContent = res.value === 'win' ? '的中' : res.value === 'lose' ? '外れ' : '未確定';
+  badge.className = 'bet-result ' + (res.value === 'win' ? 'br-win' : res.value === 'lose' ? 'br-lose' : 'br-unk');
+}
+
+function calcPayout(gi) {
+  const ib = parseInt(document.getElementById('eib-' + gi).value) || 0;
+  const dv = parseInt(document.getElementById('edv-' + gi).value) || 0;
+  const pEl = document.getElementById('egp-' + gi);
+  if (ib > 0 && dv > 0) {
+    // 払戻 = 内的中金額 × 配当金額 ÷ 100（競馬は100円単位）
+    const payout = Math.floor(ib * dv / 100);
+    pEl.value = payout;
+  } else {
+    pEl.value = '';
+  }
 }
 
 function closeEditModal(e) {
@@ -1162,36 +1509,58 @@ async function saveEdit() {
   race.raceCourse = document.getElementById('e-course').value;
   race.raceDate   = document.getElementById('e-racedate').value;
 
-  // 印のオッズ・着順を更新
+  // 印の馬番・馬名・オッズ・着順を更新
   if (!race.markOddsMap) race.markOddsMap = {};
+  if (!race.markNumMap)  race.markNumMap  = {};
+  if (!race.mhmap)       race.mhmap       = {};
+  if (!race.rankMap)     race.rankMap     = {};
   MARKS_DEF.forEach(m => {
-    const horse = race.mhmap && race.mhmap[m.sym];
-    if (!horse) return;
+    const nEl = document.getElementById('en-' + m.sym);
+    const hEl = document.getElementById('eh-' + m.sym);
     const oEl = document.getElementById('eo-' + m.sym);
     const rEl = document.getElementById('er-' + m.sym);
     if (!oEl) return;
+    const n = nEl ? nEl.value.trim() : '';
+    const h = hEl ? hEl.value.trim() : '';
     const o = oEl.value.trim();
     const r = rEl.value.trim();
-    if (o) race.markOddsMap[m.sym] = o; else delete race.markOddsMap[m.sym];
-    if (r) race.rankMap[horse] = parseInt(r); else delete race.rankMap[horse];
+    // 古いrankMapエントリを削除してから再登録
+    const oldHorse = race.mhmap[m.sym];
+    if (oldHorse) delete race.rankMap[oldHorse];
+    const key = h || (n ? n + '番' : null) || m.sym;
+    const hasInput = h || n || r || o;
+    if (hasInput) {
+      race.mhmap[m.sym] = h || key;
+      if (n) race.markNumMap[m.sym] = n; else delete race.markNumMap[m.sym];
+      if (o) race.markOddsMap[m.sym] = o; else delete race.markOddsMap[m.sym];
+      if (r) race.rankMap[race.mhmap[m.sym]] = parseInt(r);
+    } else {
+      delete race.mhmap[m.sym];
+      delete race.markNumMap[m.sym];
+      delete race.markOddsMap[m.sym];
+    }
   });
 
-  // 買い目の結果・払戻を更新 → 的中判定も再実行
-  race.bets = race.bets.map((b, i) => {
-    const pEl = document.getElementById('ep-' + i);
-    const rEl = document.getElementById('eresult-' + i);
-    if (!pEl) return b;
-    const payout  = parseInt(pEl.value) || null;
-    const result  = rEl.value || null;
-    // 結果未指定なら着順から自動判定を試みる
-    let finalResult = result;
-    if (!finalResult) {
-      finalResult = judgeResult(b, race.mhmap, race.rankMap);
-    }
-    const finalPayout = finalResult === 'win' && payout ? payout
-                      : finalResult === 'lose' ? 0 : payout;
-    return {...b, result: finalResult, payout: finalPayout};
+  // 買い目グループの払戻を更新 → 各betの的中判定も再実行
+  const groups = race.betGroups || [{type:(race.bets&&race.bets[0]&&race.bets[0].type)||'tan', bets:race.bets||[], payout:null}];
+  groups.forEach((g, gi) => {
+    const ibEl = document.getElementById('eib-' + gi);
+    const dvEl = document.getElementById('edv-' + gi);
+    const pEl  = document.getElementById('egp-' + gi);
+    if (ibEl) g.innerBet  = parseInt(ibEl.value) || null;
+    if (dvEl) g.dividend  = parseInt(dvEl.value) || null;
+    const newPayout = pEl ? (parseInt(pEl.value) || null) : g.payout;
+    // 各betの着順から的中を再判定
+    g.bets = (g.bets||[]).map(b => {
+      const result = judgeResult(b, race.mhmap, race.rankMap) || 'lose';
+      return {...b, result, payout: null};
+    });
+    const gHasWin = g.bets.some(b => b.result === 'win');
+    g.payout = gHasWin ? newPayout : 0;
   });
+  race.betGroups = groups;
+  // 旧形式のbetsは削除
+  delete race.bets;
 
   document.getElementById('edit-modal-wrap').classList.remove('open');
   editingRaceId = null;
@@ -1237,15 +1606,17 @@ async function switchSec(s) {
   document.getElementById('sec-' + s).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.sec === s));
   if (s === 'dash') {
-    showLoading('データを読み込み中...');
-    await loadRaces();
-    hideLoading();
+    if (GAS_URL) { showLoading('データを読み込み中...'); }
+    try { await loadRaces(); } catch(e) {} finally { hideLoading(); }
     renderDash();
   }
   if (s === 'history') {
-    showLoading('履歴を読み込み中...');
-    await loadRaces();
-    hideLoading();
+    if (GAS_URL) { showLoading('履歴を読み込み中...'); }
+    try { await loadRaces(); } catch(e) {} finally { hideLoading(); }
+    document.querySelectorAll('#hist-filter-marks .hf-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.mark === histMarkFilter));
+    document.querySelectorAll('#hist-filter-result .hf-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.result === histResultFilter));
     renderHistory();
   }
   if (s === 'settings') {
@@ -1265,9 +1636,12 @@ function toast(msg) {
 
 // ===== 初期化 =====
 (async () => {
-  showLoading('データを読み込み中...');
-  await loadRaces();
-  hideLoading();
+  try {
+    await loadRaces();
+  } catch(e) {
+    racesCache = [];
+    setSyncState('err', 'エラー');
+  }
   renderDash();
 })();
 </script>
